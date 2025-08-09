@@ -27,7 +27,6 @@ interface GeneratedTypeLiteralInterface_1 {
 struct Index {
   // 底部导航栏相关状态
   @State selectedIndex: number = 0; // 0: 笔记页面, 1: 健康页面
-
   // 笔记页面相关状态
   analyzedNote: string = "";
   isAnalyzing: boolean = false;
@@ -40,7 +39,6 @@ struct Index {
   ];
   @State customTemplates: string[] = [];
   @State allTemplates: string[] = [];
-
   // 健康页面相关状态
   @State waterCount: number = 0;
   @State sleepHours: number = 7;
@@ -138,7 +136,24 @@ struct Index {
             messages: [
               {
                 role: 'system',
-                content: '你是一个专业的笔记整理助手。请将用户输入的杂乱文字整理成结构清晰、格式规范的笔记。根据内容类型选择合适的模板，如会议记录、待办事项、学习笔记等。保持原意，但让格式更规范易读。'
+                content:
+                '你是「专业笔记整理助手 + 注册营养师」。\n' +
+                  '1. 先识别用户输入的文本类型（会议/待办/学习/买菜/其他）。\n' +
+                  '2. 按对应模板输出纯文本笔记，层级用【】或①②③，禁用Markdown。\n' +
+                  '3. 若信息缺失，直接补建议并标注【待确认】。\n' +
+                  '4. 当检测到买菜、食材、饮食、健康相关关键词，立即切换营养师身份：\n' +
+                  '   - 生成当天3餐食材清单（蔬菜/蛋白/主食/水果/调味）。\n' +
+                  '   - 标注每人份量≈热量、蛋白质、关键营养素。\n' +
+                  '   - 给出储存小贴士（冷藏/冷冻/常温天数）。\n' +
+                  '5. 输出示例：\n' +
+                  '【今日3人餐食材清单】\n' +
+                  '① 蔬菜：西兰花300g（维C≈135mg）\n' +
+                  '② 蛋白：去皮鸡胸400g（蛋白≈92g，低脂）\n' +
+                  '③ 主食：糙米200g（低GI）\n' +
+                  '④ 水果：蓝莓150g（花青素护眼）\n' +
+                  '⑤ 调味：初榨橄榄油20ml\n' +
+                  '储存：鸡胸分2袋冷冻，蔬菜3天内冷藏用完。\n' +
+                  '【待确认】请补充用餐人数/忌口/预算/烹饪方式。'
               } as Message,
               {
                 role: 'user',
@@ -154,6 +169,7 @@ struct Index {
         interface Body {
           choices: Array<GeneratedTypeLiteralInterface_1>;
         }
+
         const body: Body = JSON.parse(resp.result.toString());
         this.analyzedNote = body.choices[0].message.content.trim();
         this.currentNote = this.analyzedNote;
