@@ -30,6 +30,7 @@ struct Index {
   // 笔记页面相关状态
   analyzedNote: string = "";
   isAnalyzing: boolean = false;
+  @State showLoading: boolean = false; // 新增：控制加载动画显示
   @State currentNote: string = '';
   @State historyNotes: string[] = [];
   @State defaultTemplates: string[] = [
@@ -119,6 +120,7 @@ struct Index {
     }
 
     this.isAnalyzing = true;
+    this.showLoading = true; // 新增：显示加载动画
     this.analyzedNote = '正在分析中...';
 
     const client = http.createHttp();
@@ -180,6 +182,7 @@ struct Index {
       this.analyzedNote = `分析失败：${JSON.stringify(err)}`;
     } finally {
       this.isAnalyzing = false;
+      this.showLoading = false; // 新增：隐藏加载动画
       client.destroy();
     }
   }
@@ -312,6 +315,21 @@ struct Index {
         }
         .width('100%')
         .margin({ top: 8 })
+
+        // 新增：AI分析加载动画
+        if (this.showLoading) {
+          Row() {
+            LoadingProgress()
+              .color('#007AFF')
+              .width(24)
+              .height(24)
+            Text('AI正在分析，请稍候...')
+              .fontSize(14)
+              .margin({ left: 8 })
+          }
+          .margin({ top: 12 })
+          .justifyContent(FlexAlign.Center)
+        }
       }
       .padding(16)
 
