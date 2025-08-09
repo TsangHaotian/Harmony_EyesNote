@@ -1,0 +1,24 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "module description"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "description"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "EyesNote"
+    },
+    {
+      "name": "read_doc_reason",
+      "value": "用于读取手机文档"
+    },
+    {
+      "name": "write_doc_reason",
+      "value": "用于保存编辑后的文档"
+    }
+  ]
+}
