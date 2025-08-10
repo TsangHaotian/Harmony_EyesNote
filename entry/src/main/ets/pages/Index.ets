@@ -757,6 +757,46 @@ struct Index {
               .alignItems(VerticalAlign.Top)
             }
           })
+          
+          // 新增：AI正在思考的加载动画
+          if (this.isAIChatting) {
+            Row() {
+              Image($r('app.media.ic_ai'))
+                .width(36)
+                .height(36)
+                .borderRadius(18)
+                .margin({ right: 8 })
+              Column() {
+                Row() {
+                  LoadingProgress()
+                    .color('#007AFF')
+                    .width(20)
+                    .height(20)
+                  Text('AI正在思考...')
+                    .fontSize(14)
+                    .margin({ left: 8 })
+                }
+                .padding({ top: 12, bottom: 12, left: 16, right: 16 })
+                .backgroundColor('#FFFFFF')
+                .borderRadius({
+                  topLeft: 4,
+                  topRight: 20,
+                  bottomLeft: 20,
+                  bottomRight: 20
+                })
+                .shadow({
+                  radius: 2,
+                  color: '#00000010',
+                  offsetX: 0,
+                  offsetY: 1
+                })
+              }
+              Blank()
+            }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+            .alignItems(VerticalAlign.Top)
+          }
         }
         .width('100%')
         .padding({ top: 8, bottom: 8 })
