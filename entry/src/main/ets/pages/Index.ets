@@ -694,7 +694,7 @@ struct Index {
       .width('100%')
       .height(66)
       .padding(16)
-      .backgroundColor('#f5f5f5')
+      .backgroundColor($r("app.color.backgroundColor"))
 
       Divider().strokeWidth(1).color('#1F000000')
 
@@ -736,7 +736,7 @@ struct Index {
                   Text(message.content)
                     .fontSize(16)
                     .fontColor('#333333')
-                    .backgroundColor('#FFFFFF')
+                    .backgroundColor($r("app.color.deepseekcolor"))
                     .padding({ top: 12, bottom: 12, left: 16, right: 16 })
                     .borderRadius({
                       topLeft: 4,
@@ -779,7 +779,7 @@ struct Index {
                     .margin({ left: 8 })
                 }
                 .padding({ top: 12, bottom: 12, left: 16, right: 16 })
-                .backgroundColor('#FFFFFF')
+                .backgroundColor($r("app.color.deepseekcolor"))
                 .borderRadius({
                   topLeft: 4,
                   topRight: 20,
@@ -814,7 +814,7 @@ struct Index {
         })
           .layoutWeight(1)
           .height(48)
-          .backgroundColor('#F5F5F5')
+          .backgroundColor('#b22a6ab5')
           .borderRadius(24)
           .padding({ left: 16, right: 16 })
 
@@ -830,11 +830,11 @@ struct Index {
       }
       .width('100%')
       .padding(16)
-      .backgroundColor('#FFFFFF')
+      .backgroundColor($r("app.color.backgroundColor"))
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F5F5F5')
+    .backgroundColor($r("app.color.backblackgroundColor"))
   }
 
   build() {

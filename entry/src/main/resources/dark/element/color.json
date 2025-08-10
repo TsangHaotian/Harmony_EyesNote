@@ -5,6 +5,7 @@
     {"name": "TextColor", "value": "#FFFFFFFF"},
     {"name": "HealthbackgroundColor", "value": "#FF000000"},
     {"name": "backblackgroundColor","value": "#FF0C0C0C"},
-    {"name": "reTextColor","value": "#FF000000"}
+    {"name": "reTextColor","value": "#FF000000"},
+    {"name": "deepseekcolor", "value": "#BC46AB3F"}
   ]
 }
