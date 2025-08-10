@@ -1,6 +1,20 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\TsangHaotian\\.ohos\\config\\default_Harmony_EyesNote_-ToRW32XksFNtNtBY5Jawh4UdKwBCGmemr7zOWeOwUQ=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001BD75F008055C8C5B8DEEDF550AC37629A7B4C04FE0CC072B8DDBF44D98BCF8790AB8B216A6384D9",
+          "profile": "C:\\Users\\TsangHaotian\\.ohos\\config\\default_Harmony_EyesNote_-ToRW32XksFNtNtBY5Jawh4UdKwBCGmemr7zOWeOwUQ=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\TsangHaotian\\.ohos\\config\\default_Harmony_EyesNote_-ToRW32XksFNtNtBY5Jawh4UdKwBCGmemr7zOWeOwUQ=.p12",
+          "storePassword": "0000001B980C5CD75F2DE58982DD01784BE06C4BEA0FAF96EECA08B923A1BB82995B6D30FB612926AA84F5"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
