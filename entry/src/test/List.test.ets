@@ -1,5 +1,7 @@
+import StorageTest from './Storage.test'
 import localUnitTest from './LocalUnit.test';
 
 export default function testsuite() {
   localUnitTest();
+  StorageTest()
 }

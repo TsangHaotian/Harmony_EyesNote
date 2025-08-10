@@ -7,11 +7,19 @@ import http from '@ohos.net.http';
 interface RouterParams {
   content?: string;
   index?: number;
+  healthData?: HealthData; // 新增：用于传递健康数据
 }
 
 interface Message {
   role: string;
   content: string;
+}
+
+interface HealthData {
+  waterCount: number;
+  sleepHours: number;
+  stepsCount: number;
+  mood: string;
 }
 
 interface GeneratedTypeLiteralInterface_2 {
@@ -22,15 +30,31 @@ interface GeneratedTypeLiteralInterface_1 {
   message: GeneratedTypeLiteralInterface_2;
 }
 
+interface GeneratedTypeLiteralInterface_4 {
+  content: string;
+}
+
+interface GeneratedTypeLiteralInterface_3 {
+  message: GeneratedTypeLiteralInterface_4;
+}
+
+interface GeneratedTypeLiteralInterface_6 {
+  content: string;
+}
+
+interface GeneratedTypeLiteralInterface_5 {
+  message: GeneratedTypeLiteralInterface_6;
+}
+
 @Entry
 @Component
 struct Index {
   // 底部导航栏相关状态
-  @State selectedIndex: number = 0; // 0: 笔记页面, 1: 健康页面
+  @State selectedIndex: number = 0; // 0: 笔记页面, 1: 健康页面, 2: AI页面
   // 笔记页面相关状态
   analyzedNote: string = "";
   isAnalyzing: boolean = false;
-  @State showLoading: boolean = false; // 新增：控制加载动画显示
+  @State showLoading: boolean = false; // 控制加载动画显示
   @State currentNote: string = '';
   @State historyNotes: string[] = [];
   @State defaultTemplates: string[] = [
@@ -45,6 +69,10 @@ struct Index {
   @State sleepHours: number = 7;
   @State stepsCount: number = 0;
   @State mood: string = '开心';
+  // AI页面相关状态
+  @State aiMessages: Message[] = [];
+  @State aiInput: string = '';
+  @State isAIChatting: boolean = false;
 
   // 页面加载时恢复数据
   async aboutToAppear() {
@@ -67,6 +95,17 @@ struct Index {
     const savedCustomTemplates = await storage.getCustomTemplates();
     this.customTemplates = savedCustomTemplates;
     this.allTemplates = [...this.defaultTemplates, ...this.customTemplates];
+
+    // 新增：加载健康数据
+    try {
+      const savedHealthData = await storage.getHealthData();
+      this.waterCount = savedHealthData.waterCount || 0;
+      this.sleepHours = savedHealthData.sleepHours || 7;
+      this.stepsCount = savedHealthData.stepsCount || 0;
+      this.mood = savedHealthData.mood || '开心';
+    } catch (error) {
+      console.error(`加载健康数据失败: ${error}`);
+    }
   }
 
   // 页面返回时处理数据
@@ -84,6 +123,21 @@ struct Index {
     const savedCustomTemplates = await storage.getCustomTemplates();
     this.customTemplates = savedCustomTemplates;
     this.allTemplates = [...this.defaultTemplates, ...this.customTemplates];
+
+    // 新增：保存健康数据
+    await this.saveHealthData();
+  }
+
+  // 新增：保存健康数据
+  // 修复：明确指定类型，避免使用any
+  async saveHealthData() {
+    const healthData: HealthData = {
+      waterCount: this.waterCount,
+      sleepHours: this.sleepHours,
+      stepsCount: this.stepsCount,
+      mood: this.mood
+    };
+    //await storage.saveHealthData(healthData);
   }
 
   // 笔记页面方法
@@ -168,11 +222,11 @@ struct Index {
       );
 
       if (resp.responseCode === 200) {
-        interface Body {
-          choices: Array<GeneratedTypeLiteralInterface_1>;
+        interface DeepSeekResponse {
+          choices: Array<GeneratedTypeLiteralInterface_3>;
         }
 
-        const body: Body = JSON.parse(resp.result.toString());
+        const body: DeepSeekResponse = JSON.parse(resp.result.toString());
         this.analyzedNote = body.choices[0].message.content.trim();
         this.currentNote = this.analyzedNote;
       } else {
@@ -190,30 +244,138 @@ struct Index {
   // 健康页面方法
   incrementWater() {
     this.waterCount += 1;
+    this.saveHealthData(); // 新增：保存健康数据
   }
 
   decrementWater() {
     if (this.waterCount > 0) {
       this.waterCount -= 1;
+      this.saveHealthData(); // 新增：保存健康数据
     }
   }
 
   incrementSteps() {
     this.stepsCount += 100;
+    this.saveHealthData(); // 新增：保存健康数据
   }
 
   decrementSteps() {
     if (this.stepsCount >= 100) {
       this.stepsCount -= 100;
+      this.saveHealthData(); // 新增：保存健康数据
     }
   }
 
   changeSleep(hours: number) {
     this.sleepHours = Math.max(1, Math.min(12, this.sleepHours + hours));
+    this.saveHealthData(); // 新增：保存健康数据
   }
 
   changeMood(newMood: string) {
     this.mood = newMood;
+    this.saveHealthData(); // 新增：保存健康数据
+  }
+
+  // 新增：跳转到AI页面并传递健康数据
+  goToAIPage() {
+    const healthData: HealthData = {
+      waterCount: this.waterCount,
+      sleepHours: this.sleepHours,
+      stepsCount: this.stepsCount,
+      mood: this.mood
+    };
+    router.pushUrl({
+      url: 'pages/AIPage',
+      params: {
+        healthData: healthData
+      }
+    });
+  }
+
+  // 新增：AI对话方法
+  async sendAIMessage() {
+    if (this.aiInput.trim().length === 0) {
+      return;
+    }
+
+    // 添加用户消息
+    const userMessage: Message = {
+      role: 'user',
+      content: this.aiInput
+    };
+    this.aiMessages.push(userMessage);
+    this.aiInput = '';
+    this.isAIChatting = true;
+
+    // 准备健康数据
+    const healthDataStr = `健康数据：
+- 饮水量：${this.waterCount}杯
+- 睡眠时间：${this.sleepHours}小时
+- 步数：${this.stepsCount}步
+- 心情：${this.mood}`;
+
+    const client = http.createHttp();
+    try {
+      const resp = await client.request(
+        'https://api.deepseek.com/v1/chat/completions',
+        {
+          method: http.RequestMethod.POST,
+          header: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer sk-20faf5c818224258a495651e2d663907'
+          },
+          extraData: JSON.stringify({
+            model: 'deepseek-chat',
+            messages: [
+              {
+                role: 'system',
+                content:
+                '你是「健康顾问AI助手」，你的任务是：\n'
+                  + '1. 分析用户提供的健康数据（饮水量、睡眠时间、步数、心情）\n'
+                  + '2. 提供个性化的健康建议和生活方式改进意见\n'
+                  + '3. 回答用户关于健康、营养、运动等方面的问题\n'
+                  + '4. 保持友好、专业的语气，用通俗易懂的语言解释健康知识\n'
+                  + '5. 结合用户的健康数据给出具体的、可操作的建议'
+              } as Message,
+              ...this.aiMessages,
+              {
+                role: 'system',
+                content: healthDataStr
+              } as Message
+            ] as Message[],
+            max_tokens: 1000
+          })
+        }
+      );
+
+      if (resp.responseCode === 200) {
+        interface DeepSeekResponse {
+          choices: Array<GeneratedTypeLiteralInterface_5>;
+        }
+
+        const response: DeepSeekResponse = JSON.parse(resp.result.toString());
+        const aiResponse: Message = {
+          role: 'assistant',
+          content: response.choices[0].message.content.trim()
+        };
+        this.aiMessages.push(aiResponse);
+      } else {
+        const errorMessage: Message = {
+          role: 'assistant',
+          content: `请求失败，错误码：${resp.responseCode}`
+        };
+        this.aiMessages.push(errorMessage);
+      }
+    } catch (error) {
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `发生错误：${JSON.stringify(error)}`
+      };
+      this.aiMessages.push(errorMessage);
+    } finally {
+      this.isAIChatting = false;
+      client.destroy();
+    }
   }
 
   // 笔记页面UI
@@ -410,13 +572,13 @@ struct Index {
                 .width(40)
                 .height(40)
                 .borderRadius(20)
-                .onClick(() => this.decrementWater())
+                .onClick((): void => this.decrementWater())
 
               Button('+')
                 .width(40)
                 .height(40)
                 .borderRadius(20)
-                .onClick(() => this.incrementWater())
+                .onClick((): void => this.incrementWater())
             }
           }
           .width('100%')
@@ -440,13 +602,13 @@ struct Index {
                 .width(40)
                 .height(40)
                 .borderRadius(20)
-                .onClick(() => this.changeSleep(-1))
+                .onClick((): void => this.changeSleep(-1))
 
               Button('+')
                 .width(40)
                 .height(40)
                 .borderRadius(20)
-                .onClick(() => this.changeSleep(1))
+                .onClick((): void => this.changeSleep(1))
             }
           }
           .width('100%')
@@ -471,14 +633,14 @@ struct Index {
                 .height(40)
                 .borderRadius(20)
                 .fontSize(12)
-                .onClick(() => this.decrementSteps())
+                .onClick((): void => this.decrementSteps())
 
               Button('+100')
                 .width(60)
                 .height(40)
                 .borderRadius(20)
                 .fontSize(12)
-                .onClick(() => this.incrementSteps())
+                .onClick((): void => this.incrementSteps())
             }
           }
           .width('100%')
@@ -504,7 +666,7 @@ struct Index {
                   .borderRadius(18)
                   .fontSize(12)
                   .backgroundColor(this.mood === moodOption ? '#AF52DE' : '#E5E5EA')
-                  .onClick(() => this.changeMood(moodOption))
+                  .onClick((): void => this.changeMood(moodOption))
               })
             }
             .width('100%')
@@ -522,15 +684,92 @@ struct Index {
   }
 
   // ai页面UI
-  /***
-   *
-   *
-   *
-   *
-   *
-   *
-   * **/
+  @Builder
+  AIPage() {
+    Column() {
+      // 顶部标题
+      Row() {
+        Text('健康AI助手')
+          .fontSize(22)
+          .fontWeight(FontWeight.Bold)
+        Blank()
+        Image($r("app.media.about"))
+          .width(24)
+          .height(24)
+      }
+      .width('100%')
+      .height(66)
+      .padding(16)
+      .backgroundColor('#f5f5f5')
 
+      Divider().strokeWidth(1).color('#1F000000')
+
+      // 聊天记录
+      Scroll() {
+        Column() {
+          ForEach(this.aiMessages, (message: Message, index: number) => {
+            if (message.role === 'user') {
+              Row() {
+                Blank()
+                Text(message.content)
+                  .backgroundColor('#007AFF')
+                  .padding(12)
+                  .borderRadius(16)
+              }
+              .width('100%')
+              .padding(8)
+            } else {
+              Row() {
+                Image($r('app.media.ic_ai'))
+                  .width(40)
+                  .height(40)
+                  .borderRadius(20)
+                Text(message.content)
+                  .backgroundColor('#F5F5F5')
+                  .padding(12)
+                  .borderRadius(16)
+                Blank()
+              }
+              .width('100%')
+              .padding(8)
+            }
+          })
+        }
+        .width('100%')
+      }
+      .layoutWeight(1)
+      .scrollBar(BarState.Auto)
+
+      // 输入区域
+      Row() {
+        TextInput({
+          placeholder: '输入你的问题...',
+          text: $$this.aiInput
+        })
+          .layoutWeight(1)
+          .height(48)
+          .backgroundColor('#F5F5F5')
+          .borderRadius(24)
+          .padding({ left: 16, right: 16 })
+
+        Button('发送')
+          .width(80)
+          .height(48)
+          .backgroundColor('#007AFF')
+          .borderRadius(24)
+          .onClick(() => {
+            this.sendAIMessage();
+          })
+          .enabled(!this.isAIChatting)
+      }
+      .width('100%')
+      .padding(16)
+      .backgroundColor('#FFFFFF')
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor('#F5F5F5')
+  }
 
   build() {
     Column() {
@@ -538,8 +777,10 @@ struct Index {
       Stack() {
         if (this.selectedIndex === 0) {
           this.NotePage()
-        } else {
+        } else if (this.selectedIndex === 1) {
           this.HealthPage()
+        } else {
+          this.AIPage()
         }
       }
       .layoutWeight(1)
@@ -579,25 +820,32 @@ struct Index {
           this.selectedIndex = 1;
         })
         .alignItems(HorizontalAlign.Center)
+
+        // AI页面按钮
+        Column() {
+          Image($r('app.media.ic_ai'))
+            .width(24)
+            .height(24)
+            .fillColor(this.selectedIndex === 2 ? '#007AFF' : '#8E8E93')
+          Text('AI助手')
+            .fontSize(12)
+            .fontColor(this.selectedIndex === 2 ? '#007AFF' : '#8E8E93')
+            .margin({ top: 4 })
+        }
+        .layoutWeight(1)
+        .onClick(() => {
+          this.selectedIndex = 2;
+        })
+        .alignItems(HorizontalAlign.Center)
       }
 
       // AI对话界面按钮
-      /**
-       *
-       *
-       *
-       *
-       *
-       * **/
-
+      // 已整合到底部导航栏
 
       .width('100%')
       .height(56)
       .backgroundColor('#FFFFFF')
-      .border({
-        width: { top: 1 },
-        color: '#E5E5EA'
-      })
+      .border({ width: { top: 1 }, color: '#E5E5EA' })
     }
     .width('100%')
     .height('100%')

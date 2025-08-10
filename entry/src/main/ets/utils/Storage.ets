@@ -1,12 +1,19 @@
 import preferences from '@ohos.data.preferences';
 import common from '@ohos.app.ability.common';
 
+// 将HealthData接口移到类外部定义
+interface HealthData {
+  waterCount: number;
+  sleepHours: number;
+  stepsCount: number;
+  mood: string;
+}
+
 class StorageManager {
   private static instance: StorageManager;
   private pref: preferences.Preferences | null = null;
 
-  private constructor() {
-  }
+  private constructor() {}
 
   /**
    * 获取单例实例
@@ -138,6 +145,34 @@ class StorageManager {
     }
   }
 
+  // 保存健康数据方法
+  public async saveHealthData(healthData: HealthData): Promise<void> {
+    if (!this.pref) {
+      throw new Error('首选项未初始化');
+    }
+    try {
+      await this.pref.put('healthData', JSON.stringify(healthData));
+      await this.pref.flush();
+      console.log('健康数据保存成功');
+    } catch (error) {
+      console.error(`健康数据保存失败: ${error}`);
+      throw new Error(error);
+    }
+  }
+
+  // 获取健康数据方法
+  public async getHealthData(): Promise<HealthData> {
+    if (!this.pref) {
+      throw new Error('首选项未初始化');
+    }
+    try {
+      const data = await this.pref.get('healthData', '{}');
+      return JSON.parse(data as string) as HealthData;
+    } catch (error) {
+      console.error(`健康数据获取失败: ${error}`);
+      return { waterCount: 0, sleepHours: 7, stepsCount: 0, mood: '开心' };
+    }
+  }
 }
 
 export const storage = StorageManager.getInstance();
