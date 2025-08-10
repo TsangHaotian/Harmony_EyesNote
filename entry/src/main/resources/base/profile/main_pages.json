@@ -2,8 +2,6 @@
   "src": [
     "pages/Index",
     "pages/Settings",
-    "pages/NoteDetail",
-    "pages/AIPage",
-    "pages/AIserver"
+    "pages/NoteDetail"
   ]
 }
