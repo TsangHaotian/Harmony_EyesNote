@@ -701,33 +701,65 @@ struct Index {
         Column() {
           ForEach(this.aiMessages, (message: Message, index: number) => {
             if (message.role === 'user') {
+              // 用户消息 - 右侧对齐的气泡
               Row() {
                 Blank()
-                Text(message.content)
-                  .backgroundColor('#007AFF')
-                  .padding(12)
-                  .borderRadius(16)
+                Column() {
+                  Text(message.content)
+                    .fontSize(16)
+                    .fontColor('#FFFFFF')
+                    .backgroundColor('#007AFF')
+                    .padding({ top: 12, bottom: 12, left: 16, right: 16 })
+                    .borderRadius({
+                      topLeft: 20,
+                      topRight: 4,
+                      bottomLeft: 20,
+                      bottomRight: 20
+                    })
+                    .constraintSize({ maxWidth: '80%' })
+                    .textAlign(TextAlign.End)
+                }
               }
               .width('100%')
-              .padding(8)
+              .padding({ left: 16, right: 16, top: 8, bottom: 8 })
             } else {
+              // AI消息 - 左侧对齐的气泡，带头像
               Row() {
                 Image($r('app.media.ic_ai'))
-                  .width(40)
-                  .height(40)
-                  .borderRadius(20)
-                Text(message.content)
-                  .backgroundColor('#F5F5F5')
-                  .padding(12)
-                  .borderRadius(16)
+                  .width(36)
+                  .height(36)
+                  .borderRadius(18)
+                  .margin({ right: 8 })
+                Column() {
+                  Text(message.content)
+                    .fontSize(16)
+                    .fontColor('#333333')
+                    .backgroundColor('#FFFFFF')
+                    .padding({ top: 12, bottom: 12, left: 16, right: 16 })
+                    .borderRadius({
+                      topLeft: 4,
+                      topRight: 20,
+                      bottomLeft: 20,
+                      bottomRight: 20
+                    })
+                    .constraintSize({ maxWidth: '80%' })
+                    .shadow({
+                      radius: 2,
+                      color: '#00000010',
+                      offsetX: 0,
+                      offsetY: 1
+                    })
+                }
                 Blank()
               }
               .width('100%')
-              .padding(8)
+              .padding({ left: 16, right: 16, top: 8, bottom: 8 })
+              .alignItems(VerticalAlign.Top)
             }
           })
         }
         .width('100%')
+        .padding({ top: 8, bottom: 8 })
       }
       .layoutWeight(1)
       .scrollBar(BarState.Auto)
