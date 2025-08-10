@@ -1,29 +1,27 @@
 import router from '@ohos.router';
 import http from '@ohos.net.http';
+import { HealthData } from '../utils/Types'; // 导入共享接口
 
 interface Message {
   role: string;
   content: string;
 }
 
-interface HealthData {
-  waterCount: number;
-  sleepHours: number;
-  stepsCount: number;
-  mood: string;
-}
-
-
-interface GeneratedTypeLiteralInterface_1 {
-  healthData?: HealthData;
-}
-
-interface GeneratedTypeLiteralInterface_3 {
+// 简化接口定义
+interface DeepSeekMessage {
   content: string;
 }
 
-interface GeneratedTypeLiteralInterface_2 {
-  message: GeneratedTypeLiteralInterface_3;
+interface DeepSeekChoice {
+  message: DeepSeekMessage;
+}
+
+interface DeepSeekResponse {
+  choices: DeepSeekChoice[];
+}
+
+interface AIPageParams {
+  healthData?: HealthData;
 }
 
 @Entry
@@ -41,18 +39,24 @@ struct AIPage {
 
   async aboutToAppear() {
     // 获取传递过来的健康数据
-    const params = router.getParams() as GeneratedTypeLiteralInterface_1;
+    const params = router.getParams() as AIPageParams;
     if (params && params.healthData) {
       this.healthData = params.healthData;
 
       // 初始消息，介绍健康数据
       const initialMessage: Message = {
         role: 'assistant',
-        content: `欢迎使用健康AI助手！根据您提供的健康数据：\n` +
-          `- 饮水量：${this.healthData.waterCount}杯\n` +
-          `- 睡眠时间：${this.healthData.sleepHours}小时\n` +
-          `- 步数：${this.healthData.stepsCount}步\n` +
-          `- 心情：${this.healthData.mood}\n\n` +
+        content: `欢迎使用健康AI助手！根据您提供的健康数据：
+` +
+          `- 饮水量：${this.healthData.waterCount}杯
+` +
+          `- 睡眠时间：${this.healthData.sleepHours}小时
+` +
+          `- 步数：${this.healthData.stepsCount}步
+` +
+          `- 心情：${this.healthData.mood}
+
+` +
           `您有什么健康问题想要咨询吗？`
       };
       this.aiMessages.push(initialMessage);
@@ -74,10 +78,14 @@ struct AIPage {
     this.isAIChatting = true;
 
     // 准备健康数据
-    const healthDataStr = `健康数据：\n` +
-      `- 饮水量：${this.healthData.waterCount}杯\n` +
-      `- 睡眠时间：${this.healthData.sleepHours}小时\n` +
-      `- 步数：${this.healthData.stepsCount}步\n` +
+    const healthDataStr = `健康数据：
+` +
+      `- 饮水量：${this.healthData.waterCount}杯
+` +
+      `- 睡眠时间：${this.healthData.sleepHours}小时
+` +
+      `- 步数：${this.healthData.stepsCount}步
+` +
       `- 心情：${this.healthData.mood}`;
 
     const client = http.createHttp();
@@ -95,12 +103,12 @@ struct AIPage {
             messages: [
               {
                 role: 'system',
-                content: '你是「健康顾问AI助手」，你的任务是：\n'
-                  + '1. 分析用户提供的健康数据（饮水量、睡眠时间、步数、心情）\n'
-                  + '2. 提供个性化的健康建议和生活方式改进意见\n'
-                  + '3. 回答用户关于健康、营养、运动等方面的问题\n'
-                  + '4. 保持友好、专业的语气，用通俗易懂的语言解释健康知识\n'
-                  + '5. 结合用户的健康数据给出具体的、可操作的建议'
+                content: '你是「健康顾问AI助手」，你的任务是：' +
+                  '1. 分析用户提供的健康数据（饮水量、睡眠时间、步数、心情）' +
+                  '2. 提供个性化的健康建议和生活方式改进意见' +
+                  '3. 回答用户关于健康、营养、运动等方面的问题' +
+                  '4. 保持友好、专业的语气，用通俗易懂的语言解释健康知识' +
+                  '5. 结合用户的健康数据给出具体的、可操作的建议'
               } as Message,
               ...this.aiMessages,
               {
@@ -114,10 +122,6 @@ struct AIPage {
       );
 
       if (resp.responseCode === 200) {
-        interface DeepSeekResponse {
-          choices: Array<GeneratedTypeLiteralInterface_2>;
-        }
-
         const response: DeepSeekResponse = JSON.parse(resp.result.toString());
         const aiResponse: Message = {
           role: 'assistant',
@@ -147,7 +151,6 @@ struct AIPage {
     Column() {
       // 顶部标题
       Row() {
-
         Text('健康AI助手')
           .fontSize(22)
           .fontWeight(FontWeight.Bold)
@@ -172,6 +175,7 @@ struct AIPage {
                   .backgroundColor('#007AFF')
                   .padding(12)
                   .borderRadius(16)
+                  .constraintSize({ maxWidth: '80%' })
               }
               .width('100%')
               .padding(8)
@@ -185,6 +189,7 @@ struct AIPage {
                   .backgroundColor('#F5F5F5')
                   .padding(12)
                   .borderRadius(16)
+                  .constraintSize({ maxWidth: '80%' })
                 Blank()
               }
               .width('100%')

@@ -3,11 +3,12 @@ import router from '@ohos.router';
 import common from '@ohos.app.ability.common';
 import { storage } from '../utils/Storage';
 import http from '@ohos.net.http';
+import { HealthData } from '../utils/Types'; // 导入共享接口
 
 interface RouterParams {
   content?: string;
   index?: number;
-  healthData?: HealthData; // 新增：用于传递健康数据
+  healthData?: HealthData; // 使用共享接口
 }
 
 interface Message {
@@ -15,12 +16,7 @@ interface Message {
   content: string;
 }
 
-interface HealthData {
-  waterCount: number;
-  sleepHours: number;
-  stepsCount: number;
-  mood: string;
-}
+// 删除重复的 HealthData 接口定义
 
 interface GeneratedTypeLiteralInterface_2 {
   content: string;
@@ -129,7 +125,6 @@ struct Index {
   }
 
   // 新增：保存健康数据
-  // 修复：明确指定类型，避免使用any
   async saveHealthData() {
     const healthData: HealthData = {
       waterCount: this.waterCount,
@@ -137,7 +132,7 @@ struct Index {
       stepsCount: this.stepsCount,
       mood: this.mood
     };
-    //await storage.saveHealthData(healthData);
+    await storage.saveHealthData(healthData); // 现在类型匹配
   }
 
   // 笔记页面方法
@@ -824,8 +819,8 @@ struct Index {
         // AI页面按钮
         Column() {
           Image($r('app.media.ic_ai'))
-            .width(24)
-            .height(24)
+            .width(26)
+            .height(26)
             .fillColor(this.selectedIndex === 2 ? '#007AFF' : '#8E8E93')
           Text('AI助手')
             .fontSize(12)

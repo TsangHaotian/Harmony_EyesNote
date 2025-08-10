@@ -1,13 +1,6 @@
 import preferences from '@ohos.data.preferences';
 import common from '@ohos.app.ability.common';
-
-// 将HealthData接口移到类外部定义
-interface HealthData {
-  waterCount: number;
-  sleepHours: number;
-  stepsCount: number;
-  mood: string;
-}
+import { HealthData } from './Types'; // 导入共享接口
 
 class StorageManager {
   private static instance: StorageManager;
