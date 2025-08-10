@@ -684,13 +684,10 @@ struct Index {
     Column() {
       // 顶部标题
       Row() {
-        Text('健康AI助手')
+        Text('健康Deepseek')
           .fontSize(22)
           .fontWeight(FontWeight.Bold)
         Blank()
-        Image($r("app.media.about"))
-          .width(24)
-          .height(24)
       }
       .width('100%')
       .height(66)
@@ -822,7 +819,7 @@ struct Index {
             .width(26)
             .height(26)
             .fillColor(this.selectedIndex === 2 ? '#007AFF' : '#8E8E93')
-          Text('AI助手')
+          Text('健康Deepseek')
             .fontSize(12)
             .fontColor(this.selectedIndex === 2 ? '#007AFF' : '#8E8E93')
             .margin({ top: 4 })

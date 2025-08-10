@@ -149,51 +149,84 @@ struct AIPage {
 
   build() {
     Column() {
-      // 顶部标题
+      // 顶部标题栏 - 已确认没有额外图标，保持简洁
       Row() {
         Text('健康AI助手')
           .fontSize(22)
           .fontWeight(FontWeight.Bold)
-          .margin({ left: 12 })
         Blank()
       }
       .width('100%')
       .height(66)
       .padding(16)
-      .backgroundColor('#f5f5f5')
+      .backgroundColor('#ffffff')
+      .border({
+        width: { bottom: 1 }, // 仅指定下边框宽度
+        color: '#888888',
+        style: BorderStyle.Solid
+      })
 
-      Divider().strokeWidth(1).color('#1F000000')
-
-      // 聊天记录
+      // 聊天记录区域
       Scroll() {
         Column() {
+          // 添加日期分隔符（微信风格）
+          Text('今天')
+            .fontSize(12)
+            //.color('#888888')
+            .backgroundColor('#f5f5f5')
+            .padding({ left: 10, right: 10, top: 2, bottom: 2 })
+            .borderRadius(4)
+            .margin(10)
+
           ForEach(this.aiMessages, (message: Message, index: number) => {
             if (message.role === 'user') {
+              // 用户消息 - 右对齐，蓝色背景
               Row() {
                 Blank()
-                Text(message.content)
-                  .backgroundColor('#007AFF')
-                  .padding(12)
-                  .borderRadius(16)
-                  .constraintSize({ maxWidth: '80%' })
+                Column() {
+                  Text(message.content)
+                    .backgroundColor('#007AFF')
+                    //.color('#ffffff')
+                    .padding(12)
+                    .borderRadius(18)
+                    .borderRadius({
+                    topRight: 4  // 仅设置右上角圆角
+                  })
+                    .constraintSize({ maxWidth: '80%' })
+                  Text('') // 空文本占位，用于调整间距
+                    .height(8)
+                }
               }
               .width('100%')
-              .padding(8)
+              .padding({ right: 12, bottom: 6 })
             } else {
+              // AI消息 - 左对齐，白色背景，带头像
               Row() {
                 Image($r('app.media.ic_ai'))
-                  .width(40)
-                  .height(40)
+                  .width(30)
+                  .height(30)
                   .borderRadius(20)
-                Text(message.content)
-                  .backgroundColor('#F5F5F5')
-                  .padding(12)
-                  .borderRadius(16)
-                  .constraintSize({ maxWidth: '80%' })
+                  .margin({ right: 8 })
+                Column() {
+                  Text(message.content)
+                    .backgroundColor('#ffffff')
+                    .padding({ right: 22 })
+                    .borderRadius(18)
+                    .borderRadius({
+                      topLeft: 4,
+                      topRight: 0,
+                      bottomLeft: 0,
+                      bottomRight: 0
+                    })
+                    .constraintSize({ maxWidth: '80%' })
+                    .shadow({ radius: 2, color: '#00000010', offsetX: 0, offsetY: 1 })
+                  Text('') // 空文本占位，用于调整间距
+                    .height(8)
+                }
                 Blank()
               }
               .width('100%')
-              .padding(8)
+              .padding({ left: 12, bottom: 6 })
             }
           })
         }
@@ -201,6 +234,7 @@ struct AIPage {
       }
       .layoutWeight(1)
       .scrollBar(BarState.Auto)
+      .backgroundColor('#f5f5f5')
 
       // 输入区域
       Row() {
@@ -209,27 +243,35 @@ struct AIPage {
           text: $$this.aiInput
         })
           .layoutWeight(1)
-          .height(48)
-          .backgroundColor('#F5F5F5')
-          .borderRadius(24)
+          .height(44)
+          .backgroundColor('#ffffff')
+          .borderRadius(22)
           .padding({ left: 16, right: 16 })
+          .borderWidth(1)
+          .borderColor('#eeeeee')
 
         Button('发送')
           .width(80)
-          .height(48)
+          .height(44)
           .backgroundColor('#007AFF')
-          .borderRadius(24)
+          .borderRadius(22)
+          .margin({ left: 8 })
           .onClick(() => {
             this.sendAIMessage();
           })
           .enabled(!this.isAIChatting)
       }
       .width('100%')
-      .padding(16)
-      .backgroundColor('#FFFFFF')
+      .padding(12)
+      .backgroundColor('#ffffff')
+      .border({
+        width: { top: 1 }, // 只设上边框宽度
+        color: '#888888',
+        style: BorderStyle.Solid
+      })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F5F5F5')
+    .backgroundColor('#f5f5f5')
   }
 }
