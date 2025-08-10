@@ -226,7 +226,7 @@ struct Index {
           .fontSize(22)
           .fontWeight(FontWeight.Bold)
         Blank()
-        Image($r("app.media.ic_setting"))
+        Image($r("app.media.about"))
           .width(24)
           .height(24)
           .onClick(() => {
@@ -234,6 +234,7 @@ struct Index {
           })
       }
       .width('100%')
+      .height(66)
       .padding({
         left: 16,
         right: 16,
@@ -520,6 +521,17 @@ struct Index {
     .backgroundColor('#FFF5F5F5')
   }
 
+  // ai页面UI
+  /***
+   *
+   *
+   *
+   *
+   *
+   *
+   * **/
+
+
   build() {
     Column() {
       // 主内容区域
@@ -568,6 +580,17 @@ struct Index {
         })
         .alignItems(HorizontalAlign.Center)
       }
+
+      // AI对话界面按钮
+      /**
+       *
+       *
+       *
+       *
+       *
+       * **/
+
+
       .width('100%')
       .height(56)
       .backgroundColor('#FFFFFF')

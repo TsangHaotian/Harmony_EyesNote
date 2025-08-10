@@ -82,7 +82,7 @@ struct NoteDetail {
           })
       }
       .width('100%')
-      .height(56)
+      .height(58)
       .padding({ left: 16, right: 16 })
       .backgroundColor('#f5f5f5')
 
