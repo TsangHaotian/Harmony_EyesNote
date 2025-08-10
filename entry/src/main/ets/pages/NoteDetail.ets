@@ -82,9 +82,9 @@ struct NoteDetail {
           })
       }
       .width('100%')
-      .height(58)
+      .height(66)
       .padding({ left: 16, right: 16 })
-      .backgroundColor('#f5f5f5')
+      .backgroundColor($r("app.color.backgroundColor"))
 
       // 笔记内容编辑区
       Column() {
@@ -92,21 +92,17 @@ struct NoteDetail {
           .width('100%')
           .height('100%')
           .fontSize(16)
-          .backgroundColor('#FFFFFF')
+          .backgroundColor($r("app.color.start_window_background"))
           .placeholderColor('#CCCCCC')
           .padding(16)
           .onChange((value: string) => {
             this.editedContent = value;
           })
       }
-      .width('100%')
-      .layoutWeight(1)
-      .margin({ top: 8 })
-      .borderRadius(8)
-      .backgroundColor('#FFFFFF')
+
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#F5F5F5')
+    .backgroundColor($r("app.color.backgroundColor"))
   }
 }

@@ -1,8 +1,10 @@
 {
   "color": [
-    {
-      "name": "start_window_background",
-      "value": "#FFFFFFFF"
-    }
+    {"name": "start_window_background", "value": "#FFFFFFFF"},
+    {"name": "backgroundColor", "value": "#5BC6C6C6"},
+    {"name": "TextColor","value": "#FF000000"},
+    {"name": "HealthbackgroundColor", "value": "#FFFFFF"},
+    {"name": "backblackgroundColor","value": "#f5f5f5"},
+    {"name": "reTextColor", "value": "#FF000000"}
   ]
 }

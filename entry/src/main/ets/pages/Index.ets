@@ -398,15 +398,14 @@ struct Index {
         top: 12,
         bottom: 12
       })
-      .backgroundColor('#f5f5f5')
-
-      Divider().strokeWidth(1).color('#1F000000')
+      .backgroundColor($r("app.color.backgroundColor"))
 
       // 模板卡片
       Column() {
         Text('📋 快速模板')
           .fontSize(16)
           .fontWeight(FontWeight.Medium)
+          .fontColor($r("app.color.TextColor"))
           .margin({ bottom: 8 })
 
         Scroll() {
@@ -430,7 +429,7 @@ struct Index {
               .width(120)
               .height(100)
               .padding(8)
-              .backgroundColor('#FFF0F0F0')
+              .backgroundColor($r("app.color.backgroundColor"))
               .borderRadius(8)
             })
           }
@@ -453,7 +452,7 @@ struct Index {
         TextInput({ placeholder: '写下你的想法…', text: $$this.currentNote })
           .width('100%')
           .height(100)
-          .backgroundColor('#FFECECEC')
+          .backgroundColor($r("app.color.backgroundColor"))
           .borderRadius(8)
 
         Row({ space: 8 }) {
@@ -483,6 +482,7 @@ struct Index {
               .height(24)
             Text('AI正在分析，请稍候...')
               .fontSize(14)
+              .fontColor($r("app.color.TextColor"))
               .margin({ left: 8 })
           }
           .margin({ top: 12 })
@@ -507,6 +507,7 @@ struct Index {
                 Text(note)
                   .fontSize(14)
                   .maxLines(2)
+                  .fontColor($r("app.color.reTextColor"))
                   .textOverflow({ overflow: TextOverflow.Ellipsis })
                   .layoutWeight(1)
                 Image($r('app.media.ic_delete'))
@@ -536,7 +537,7 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#FFFFFFFF')
+    .backgroundColor($r("app.color.backgroundColor"))
   }
 
   // 健康页面UI
@@ -548,6 +549,7 @@ struct Index {
         Text('健康追踪')
           .fontSize(22)
           .fontWeight(FontWeight.Bold)
+          .fontColor($r("app.color.TextColor"))
           .margin({ top: 20, bottom: 10 })
 
         // 饮水追踪
@@ -675,7 +677,7 @@ struct Index {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor('#FFF5F5F5')
+    .backgroundColor($r("app.color.backgroundColor"))
   }
 
   // ai页面UI
@@ -908,7 +910,7 @@ struct Index {
 
       .width('100%')
       .height(56)
-      .backgroundColor('#FFFFFF')
+      .backgroundColor($r("app.color.backblackgroundColor"))
       .border({ width: { top: 1 }, color: '#E5E5EA' })
     }
     .width('100%')
@@ -926,7 +928,7 @@ struct Card {
       this.content()
     }
     .width('100%')
-    .backgroundColor('#FFFFFF')
+    .backgroundColor($r("app.color.HealthbackgroundColor"))
     .borderRadius(12)
     .shadow({
       radius: 8,

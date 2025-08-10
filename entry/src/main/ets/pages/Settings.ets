@@ -22,7 +22,7 @@ struct Settings {
       .width('100%')
       .height(66)
       .padding({ left: 16, right: 16 })
-      .backgroundColor('#f5f5f5')
+      .backgroundColor($r("app.color.backgroundColor"))
 
       Scroll() {
         Column({ space: 10 }) {
@@ -38,7 +38,7 @@ struct Settings {
           .width('100%')
           .padding(16)
           .borderRadius(8)
-          .backgroundColor('#FFFFFF')
+          .backgroundColor($r("app.color.backgroundColor"))
           .margin({ bottom: 8 })
 
           Row() {
@@ -52,7 +52,7 @@ struct Settings {
           .width('100%')
           .padding(16)
           .borderRadius(8)
-          .backgroundColor('#FFFFFF')
+          .backgroundColor($r("app.color.backgroundColor"))
 
           Row() {
             Text('联系邮箱')
@@ -65,7 +65,7 @@ struct Settings {
           .width('100%')
           .padding(16)
           .borderRadius(8)
-          .backgroundColor('#FFFFFF')
+          .backgroundColor($r("app.color.backgroundColor"))
 
 
           Row() {
@@ -79,7 +79,7 @@ struct Settings {
           .width('100%')
           .padding(16)
           .borderRadius(8)
-          .backgroundColor('#FFFFFF')
+          .backgroundColor($r("app.color.backgroundColor"))
 
         }
         .width('100%')
