@@ -3,12 +3,17 @@ import router from '@ohos.router';
 import common from '@ohos.app.ability.common';
 import { storage } from '../utils/Storage';
 import http from '@ohos.net.http';
-import { HealthData } from '../utils/Types'; // 导入共享接口
+import { HealthData, DailyHealthRecord, Template, ThemePreset } from '../utils/Types'; // 导入共享接口
+import promptAction from '@ohos.promptAction';
+import { HealthKitSync } from '../utils/HealthKitSync';
+import { DEFAULT_THEME_ID, ThemeColorKey, cloneThemePreset, cloneThemePresets, getThemeById, getThemeColorValue } from '../utils/Theme';
 
 interface RouterParams {
   content?: string;
   index?: number;
   healthData?: HealthData; // 使用共享接口
+  currentNote?: string; // 当前笔记内容
+  noteSaved?: boolean; // 笔记是否已保存到历史记录
 }
 
 interface Message {
@@ -20,10 +25,6 @@ interface Message {
 
 interface GeneratedTypeLiteralInterface_2 {
   content: string;
-}
-
-interface GeneratedTypeLiteralInterface_1 {
-  message: GeneratedTypeLiteralInterface_2;
 }
 
 interface GeneratedTypeLiteralInterface_4 {
@@ -53,27 +54,110 @@ struct Index {
   @State showLoading: boolean = false; // 控制加载动画显示
   @State currentNote: string = '';
   @State historyNotes: string[] = [];
-  @State defaultTemplates: string[] = [
-    '会议记录模板：\n\n会议主题：\n时间：\n地点：\n参与人员：\n\n议程：\n1. \n2. \n3. \n\n待办事项：',
-    '购物清单：\n\n🥬 蔬菜类：\n🥩 肉类：\n🥛 奶制品：\n🍞 主食：\n🧹 日用品：',
-    '学习计划：\n\n📚 今日学习目标：\n⏰ 预计用时：\n📖 重点内容：\n✅ 完成情况：'
+  @State filteredNotes: string[] = []; // 过滤后的笔记列表
+  @State searchKeyword: string = ''; // 搜索关键词
+  @State showSearch: boolean = false; // 是否显示搜索框
+  @State defaultTemplates: Template[] = [
+    {
+      id: 'meeting',
+      name: '会议记录',
+      icon: '📝',
+      content: '会议记录模板：\n\n会议主题：\n时间：\n地点：\n参与人员：\n\n议程：\n1. \n2. \n3. \n\n待办事项：',
+      category: '工作',
+      description: '快速记录会议要点'
+    },
+    {
+      id: 'shopping',
+      name: '购物清单',
+      icon: '🛒',
+      content: '购物清单：\n\n🥬 蔬菜类：\n🥩 肉类：\n🥛 奶制品：\n🍞 主食：\n🧹 日用品：',
+      category: '生活',
+      description: '分类整理购物需求'
+    },
+    {
+      id: 'study',
+      name: '学习计划',
+      icon: '📚',
+      content: '学习计划：\n\n📚 今日学习目标：\n⏰ 预计用时：\n📖 重点内容：\n✅ 完成情况：',
+      category: '学习',
+      description: '规划每日学习任务'
+    },
+    {
+      id: 'daily',
+      name: '每日总结',
+      icon: '📅',
+      content: '每日总结：\n\n✅ 今日完成：\n\n💡 今日收获：\n\n📝 明日计划：\n\n🎯 待改进：',
+      category: '生活',
+      description: '记录每日生活点滴'
+    },
+    {
+      id: 'todo',
+      name: '待办事项',
+      icon: '✓',
+      content: '待办事项：\n\n□ 任务1\n□ 任务2\n□ 任务3\n\n优先级：\n🔴 紧急重要\n🟡 重要不紧急\n🟢 紧急不重要',
+      category: '工作',
+      description: '管理日常待办任务'
+    }
   ];
-  @State customTemplates: string[] = [];
-  @State allTemplates: string[] = [];
+  @State customTemplates: Template[] = [];
+  @State allTemplates: Template[] = [];
   // 健康页面相关状态
   @State waterCount: number = 0;
   @State sleepHours: number = 7;
   @State stepsCount: number = 0;
   @State mood: string = '开心';
+  @State waterGoal: number = 8; // 每日饮水目标
+  @State sleepGoal: number = 8; // 每日睡眠目标
+  @State stepsGoal: number = 10000; // 每日步数目标
+  @State lastResetDate: string = ''; // 上次重置日期
+  @State isSyncing: boolean = false; // 是否正在同步健康数据
   // AI页面相关状态
   @State aiMessages: Message[] = [];
   @State aiInput: string = '';
   @State isAIChatting: boolean = false;
+  // 主题相关状态
+  @State themePresets: ThemePreset[] = cloneThemePresets();
+  @State selectedThemeId: string = DEFAULT_THEME_ID;
+
+  getCurrentTheme(): ThemePreset {
+    return getThemeById(this.selectedThemeId, this.themePresets);
+  }
+
+  getThemeColor(key: ThemeColorKey): string {
+    return getThemeColorValue(this.getCurrentTheme(), key);
+  }
+
+  async syncThemePresetsFromStorage() {
+    const presets = cloneThemePresets();
+    const customTheme = await storage.getCustomThemePreset();
+    if (customTheme) {
+      presets.push(cloneThemePreset(customTheme));
+    }
+    this.themePresets = presets;
+  }
+
+  async applyTheme(themeId: string, persist: boolean = true) {
+    const themeExists = this.themePresets.some((theme: ThemePreset) => theme.id === themeId);
+    if (!themeExists) {
+      console.warn(`未找到主题：${themeId}`);
+      return;
+    }
+    this.selectedThemeId = themeId;
+    if (persist) {
+      await storage.saveThemePreference(themeId);
+    }
+  }
 
   // 页面加载时恢复数据
   async aboutToAppear() {
     const context = getContext(this) as common.UIAbilityContext;
     await storage.init(context);
+    await this.syncThemePresetsFromStorage();
+    const savedThemeId = await storage.getThemePreference();
+    const themeToApply = savedThemeId && this.themePresets.some((theme: ThemePreset) => theme.id === savedThemeId)
+      ? savedThemeId
+      : this.selectedThemeId;
+    await this.applyTheme(themeToApply, false);
 
     // 加载笔记数据
     const savedNotes = await storage.getHistoryNotes();
@@ -82,6 +166,7 @@ struct Index {
     } else {
       this.historyNotes = ['欢迎使用眨眼笔记，这是一个快速记录工具，可以帮助您记录您的想法'];
     }
+    this.filteredNotes = this.historyNotes;
 
     const savedCurrentNote = await storage.getCurrentNote();
     if (savedCurrentNote) {
@@ -95,10 +180,29 @@ struct Index {
     // 新增：加载健康数据
     try {
       const savedHealthData = await storage.getHealthData();
-      this.waterCount = savedHealthData.waterCount || 0;
-      this.sleepHours = savedHealthData.sleepHours || 7;
-      this.stepsCount = savedHealthData.stepsCount || 0;
-      this.mood = savedHealthData.mood || '开心';
+      const today = new Date().toDateString();
+      
+      // 检查是否需要重置（新的一天）
+      if (savedHealthData.lastResetDate !== today) {
+        // 新的一天，重置数据
+        this.waterCount = 0;
+        this.sleepHours = 7;
+        this.stepsCount = 0;
+        this.mood = '开心';
+        this.lastResetDate = today;
+        await this.saveHealthData();
+      } else {
+        this.waterCount = savedHealthData.waterCount || 0;
+        this.sleepHours = savedHealthData.sleepHours || 7;
+        this.stepsCount = savedHealthData.stepsCount || 0;
+        this.mood = savedHealthData.mood || '开心';
+        this.lastResetDate = savedHealthData.lastResetDate || today;
+      }
+      
+      // 加载健康目标
+      this.waterGoal = savedHealthData.waterGoal || 8;
+      this.sleepGoal = savedHealthData.sleepGoal || 8;
+      this.stepsGoal = savedHealthData.stepsGoal || 10000;
     } catch (error) {
       console.error(`加载健康数据失败: ${error}`);
     }
@@ -107,13 +211,54 @@ struct Index {
   // 页面返回时处理数据
   async onPageShow() {
     const result = router.getParams() as RouterParams;
-    if (result && result.content !== undefined && result.index !== undefined) {
-      const newContent = result.content;
-      const index = result.index;
-      if (index >= 0 && index < this.historyNotes.length) {
-        this.historyNotes[index] = newContent;
-        await storage.saveHistoryNotes(this.historyNotes);
+
+    await this.syncThemePresetsFromStorage();
+    const themeOnShow = await storage.getThemePreference();
+    if (themeOnShow && this.themePresets.some((theme: ThemePreset) => theme.id === themeOnShow)) {
+      if (themeOnShow !== this.selectedThemeId) {
+        await this.applyTheme(themeOnShow, false);
       }
+    } else if (this.selectedThemeId !== DEFAULT_THEME_ID) {
+      await this.applyTheme(DEFAULT_THEME_ID, false);
+    }
+
+    if (result) {
+      // 处理历史笔记更新
+      if (result.content !== undefined && result.index !== undefined) {
+        const newContent = result.content;
+        const index = result.index;
+        if (index >= 0 && index < this.historyNotes.length) {
+          this.historyNotes[index] = newContent;
+          await storage.saveHistoryNotes(this.historyNotes);
+          this.filterNotes(); // 更新过滤列表
+        }
+      }
+      
+      // 处理当前笔记更新
+      if (result.currentNote !== undefined) {
+        this.currentNote = result.currentNote;
+        await storage.saveCurrentNote(this.currentNote);
+      }
+      
+      // 如果笔记已保存到历史记录，刷新历史笔记列表
+      if (result.noteSaved) {
+        const savedNotes = await storage.getHistoryNotes();
+        this.historyNotes = savedNotes;
+        this.filterNotes();
+      }
+    }
+
+    // 检查当前笔记是否有更新（AI分析可能已完成）
+    const savedCurrentNote = await storage.getCurrentNote();
+    if (savedCurrentNote !== this.currentNote) {
+      this.currentNote = savedCurrentNote;
+    }
+
+    // 刷新历史笔记列表（AI分析可能已更新了历史笔记）
+    const savedNotes = await storage.getHistoryNotes();
+    if (JSON.stringify(savedNotes) !== JSON.stringify(this.historyNotes)) {
+      this.historyNotes = savedNotes;
+      this.filterNotes();
     }
 
     const savedCustomTemplates = await storage.getCustomTemplates();
@@ -124,15 +269,41 @@ struct Index {
     await this.saveHealthData();
   }
 
+  // 打开笔记编辑器
+  openNoteEditor() {
+    router.pushUrl({
+      url: 'pages/NoteEditor',
+      params: {
+        currentNote: this.currentNote
+      }
+    });
+  }
+
   // 新增：保存健康数据
   async saveHealthData() {
+    const today = new Date().toDateString();
     const healthData: HealthData = {
+      waterCount: this.waterCount,
+      sleepHours: this.sleepHours,
+      stepsCount: this.stepsCount,
+      mood: this.mood,
+      lastResetDate: this.lastResetDate || today,
+      waterGoal: this.waterGoal,
+      sleepGoal: this.sleepGoal,
+      stepsGoal: this.stepsGoal
+    };
+    await storage.saveHealthData(healthData);
+    
+    // 同时保存每日健康记录
+    const todayStr = new Date().toISOString().split('T')[0]; // YYYY-MM-DD格式
+    const dailyRecord: DailyHealthRecord = {
+      date: todayStr,
       waterCount: this.waterCount,
       sleepHours: this.sleepHours,
       stepsCount: this.stepsCount,
       mood: this.mood
     };
-    await storage.saveHealthData(healthData); // 现在类型匹配
+    await storage.saveDailyHealthRecord(dailyRecord);
   }
 
   // 笔记页面方法
@@ -148,19 +319,75 @@ struct Index {
 
   async saveNote() {
     if (this.currentNote.trim().length === 0) {
+      promptAction.showToast({
+        message: '笔记内容不能为空',
+        duration: 2000
+      });
       return;
     }
 
     this.historyNotes.unshift(this.currentNote.trim());
     this.currentNote = '';
+    this.filteredNotes = this.historyNotes;
 
     await storage.saveHistoryNotes(this.historyNotes);
     await storage.saveCurrentNote('');
+    
+    promptAction.showToast({
+      message: '笔记保存成功',
+      duration: 2000
+    });
   }
 
   async deleteNote(index: number) {
-    this.historyNotes.splice(index, 1);
-    await storage.saveHistoryNotes(this.historyNotes);
+    // 显示确认对话框
+    promptAction.showDialog({
+      title: '确认删除',
+      message: '确定要删除这条笔记吗？',
+      buttons: [
+        { text: '取消', color: '#666666' },
+        { text: '删除', color: '#FF3B30' }
+      ]
+    }).then((result) => {
+      if (result.index === 1) {
+        // 用户点击了删除
+        const originalIndex = this.historyNotes.indexOf(this.filteredNotes[index]);
+        this.historyNotes.splice(originalIndex, 1);
+        this.filterNotes();
+        storage.saveHistoryNotes(this.historyNotes);
+        promptAction.showToast({
+          message: '笔记已删除',
+          duration: 2000
+        });
+      }
+    }).catch((err: Error) => {
+      console.error(`删除确认对话框错误: ${err}`);
+    });
+  }
+
+  // 搜索笔记
+  filterNotes() {
+    if (this.searchKeyword.trim() === '') {
+      this.filteredNotes = this.historyNotes;
+    } else {
+      this.filteredNotes = this.historyNotes.filter(note =>
+        note.toLowerCase().includes(this.searchKeyword.toLowerCase())
+      );
+    }
+  }
+
+  // 分享笔记
+  async shareNote(note: string) {
+    promptAction.showToast({
+      message: '分享功能：可以复制笔记内容后分享',
+      duration: 3000
+    });
+    // 注意：鸿蒙系统的分享功能需要更复杂的配置，这里先提示用户
+  }
+
+  // 获取笔记字数
+  getNoteWordCount(note: string): number {
+    return note.replace(/\s/g, '').length;
   }
 
   async analyzeNoteWithAI() {
@@ -271,6 +498,93 @@ struct Index {
     this.saveHealthData(); // 新增：保存健康数据
   }
 
+  // 新增：同步华为运动健康数据
+  async syncHealthKitData() {
+    const context = getContext(this) as common.UIAbilityContext;
+    if (!context) {
+      promptAction.showToast({
+        message: '无法获取应用上下文',
+        duration: 2000
+      });
+      return;
+    }
+
+    this.isSyncing = true;
+    try {
+      // 检查Health Kit是否可用
+      const isAvailable = await HealthKitSync.isHealthKitAvailable(context);
+      if (!isAvailable) {
+        promptAction.showToast({
+          message: '功能待开发，敬请期待',
+          duration: 3000
+        });
+        this.isSyncing = false;
+        return;
+      }
+
+      // 请求权限
+      const hasPermission = await HealthKitSync.requestHealthKitPermission(context);
+      if (!hasPermission) {
+        promptAction.showToast({
+          message: '需要Health Kit权限才能同步数据',
+          duration: 3000
+        });
+        this.isSyncing = false;
+        return;
+      }
+
+      // 获取当前健康数据
+      const currentHealthData: HealthData = {
+        waterCount: this.waterCount,
+        sleepHours: this.sleepHours,
+        stepsCount: this.stepsCount,
+        mood: this.mood,
+        lastResetDate: this.lastResetDate,
+        waterGoal: this.waterGoal,
+        sleepGoal: this.sleepGoal,
+        stepsGoal: this.stepsGoal
+      };
+
+      // 同步数据
+      const syncedData = await HealthKitSync.syncAllHealthData(context, currentHealthData);
+
+      // 更新本地数据
+      if (syncedData.stepsCount > 0 && syncedData.stepsCount !== this.stepsCount) {
+        this.stepsCount = syncedData.stepsCount;
+        promptAction.showToast({
+          message: `已同步步数：${syncedData.stepsCount}步`,
+          duration: 2000
+        });
+      }
+
+      if (syncedData.sleepHours > 0 && syncedData.sleepHours !== this.sleepHours) {
+        this.sleepHours = syncedData.sleepHours;
+        promptAction.showToast({
+          message: `已同步睡眠：${syncedData.sleepHours}小时`,
+          duration: 2000
+        });
+      }
+
+      // 保存更新后的数据
+      await this.saveHealthData();
+
+      if (syncedData.stepsCount === this.stepsCount && syncedData.sleepHours === this.sleepHours) {
+        promptAction.showToast({
+          message: '数据已是最新，无需同步',
+          duration: 2000
+        });
+      }
+    } catch (error) {
+      console.error(`同步健康数据失败: ${error}`);
+      promptAction.showToast({
+        message: '同步失败，请稍后重试',
+        duration: 2000
+      });
+    } finally {
+      this.isSyncing = false;
+    }
+  }
+
   // 新增：跳转到AI页面并传递健康数据
   goToAIPage() {
     const healthData: HealthData = {
@@ -302,12 +616,31 @@ struct Index {
     this.aiInput = '';
     this.isAIChatting = true;
 
+    // 获取历史笔记内容
+    let notesContext = '';
+    try {
+      const historyNotes = await storage.getHistoryNotes();
+      if (historyNotes && historyNotes.length > 0) {
+        // 限制笔记数量，避免token过多（取最近20条）
+        const recentNotes = historyNotes.slice(0, 20);
+        notesContext = '\n\n用户的历史笔记内容（供参考）：\n';
+        recentNotes.forEach((note: string, index: number) => {
+          if (note && note.trim().length > 0) {
+            notesContext += `笔记${index + 1}：${note.substring(0, 200)}${note.length > 200 ? '...' : ''}\n\n`;
+          }
+        });
+        notesContext += '你可以参考这些历史笔记内容，结合用户的健康数据，提供更个性化的健康建议。';
+      }
+    } catch (error) {
+      console.error(`获取历史笔记失败: ${error}`);
+    }
+
     // 准备健康数据
     const healthDataStr = `健康数据：
 - 饮水量：${this.waterCount}杯
 - 睡眠时间：${this.sleepHours}小时
 - 步数：${this.stepsCount}步
-- 心情：${this.mood}`;
+- 心情：${this.mood}${notesContext}`;
 
     const client = http.createHttp();
     try {
@@ -330,60 +663,49 @@ struct Index {
                   + '2. 提供个性化的健康建议和生活方式改进意见\n'
                   + '3. 回答用户关于健康、营养、运动等方面的问题\n'
                   + '4. 保持友好、专业的语气，用通俗易懂的语言解释健康知识\n'
-                  + '5. 结合用户的健康数据给出具体的、可操作的建议'
-                  + '对话禁止出现md格式的文档，严格按照正常的普通文本格式输出'
-                  + '对话禁止出现特殊符号，比如“#”和“*”'
-                  + '当用户问道关于吃饭，做饭，吃什么等，你可以给出一个健康增肥食谱'
-                  + '但是用户是一个系统性红斑狼疮患者，你需要结合相关知识推荐每一天的菜品'
-                  + '系统性红斑狼疮相关饮食知识如下：'
-                  + '饮食原则：抗炎、护肾、调节免疫'
-                  + '1.减少炎症反应：避免促炎食物，增加抗炎成分摄入。'
-                  + '2.保护肾脏功能：针对肾损伤患者，需严格控制蛋白质和钠盐分摄入。'
-                  + '3.调节免疫平衡：避免免疫系统过度激活，同时确保营养均衡摄取。'
-                  + '推荐食物：营养助力健康'
-                  + '1.Omega-3脂肪酸的食物'
-                  + '推荐种类：深海鱼类（三文鱼、鲭鱼）、亚麻籽及核桃等富含Omega-3脂肪酸的食物。'
-                  + '作用：通过调节二十碳烷酸代谢途径，抑制促炎因子（如IL-1β、TNF-α）的生物合成。'
-                  + '建议：每周摄入深海鱼类2-3次（单次建议量150-200g），或每日补充亚麻籽油15-20mL（约一汤匙）。'
-                  + '2.抗氧化蔬果'
-                  + '推荐种类：西兰花、蓝莓、胡萝卜、紫甘蓝、南瓜。'
-                  + '作用：通过中和氧自由基，减少氧化损伤。'
-                  + '临床提示：肾功能不全患者应限制高钾蔬果（如香蕉、橙子）摄入。'
-                  + '3.优质蛋白质摄入'
-                  + '植物蛋白：推进豆腐、豆浆以降低肾脏滤过负荷。'
-                  + '动物蛋白：建议选用低脂乳制品（脱脂牛奶、酸奶），其钙磷比有利于骨密度维持，预防骨质疏松。'
-                  + '4.低盐、低脂饮食'
-                  + '盐分控制：建议的每日食盐摄入量＜5克，严格限制腌制食品、加工肉制品。'
-                  + '健康油脂：橄榄油、茶籽油替代动物油。'
-                  + '5.补钙与维生素D'
-                  + '高钙食物：黑芝麻、虾皮、奶制品、芝麻等。'
-                  + '维生素D来源：口服维生素D补充剂。'
-                  + '需谨慎或避免的食物'
-                  + '1.光敏性食物'
-                  + '芹菜、香菜、无花果、苋菜等可增强光敏感，导致皮肤红斑加重，建议限制摄入，外出时配合物理防嗮措施。'
-                  + '2.高盐、高糖、高脂食品'
-                  + '腌制食品（咸菜、腊肉）、甜点和脂肪含量高的食材（肥肉）等可能加剧水钠潴留，升高血压，加重心血管负荷。'
-                  + '3.酒精与辛辣刺激物'
-                  + '酒精可能加重肝脏代谢负担，并与免疫抑制剂（如甲氨蝶呤）产生代动力学相互作用；辣椒、咖啡等可能刺激黏膜，增加口腔溃疡发生风险。'
-                  + '4.慎用补品与“增强免疫力”食物'
-                  + '人参、灵芝、蜂王浆等可能过度激活免疫系统，引发自身免疫反应异常增强，导致病情波动。'
-                  + '5.部分草药与保健品'
-                  + '含马兜铃酸等肾毒性成分的中药或中药复方制剂需严格遵医嘱使用，以避免肾小管间质损伤等药物性肾损害发生。'
-                  + '常见误区与解答'
-                  + '1.误区：“豆制品会诱发狼疮？”'
-                  + '解答：误区！研究表明，大豆异黄酮具有双向调节免疫的作用，适量摄入（每日豆腐100克或豆浆300毫升）是安全的。'
-                  + '2.误区：“必须严格忌口，否则会复发？”'
-                  + '解答：过度忌口可能引发营养失衡，导致营养不良，反而削弱抵抗力。建议根据个体情况（如肾功能、药物使用）灵活调整。'
-                  + '3.误区：“吃素更健康？”'
-                  + '解答：纯素食存在维生素B12缺乏风险，该营养素缺乏可导致巨幼红细胞性贫血及神经系统损伤，建议采用蛋奶素食模式或进行营养强化补充。'
-                  + '个性化饮食方案'
-                  + '1.肾脏受累者'
-                  + '饮食建议：低盐、低蛋白、低嘌呤，限制豆类及内脏。'
-                  + '2.狼疮性肾炎患者'
-                  + '饮食建议：根据尿蛋白定量调整蛋白质摄入量。'
-                  + '3.贫血患者(用户属于这种)'
-                  + '增加红肉、菠菜、黑木耳，配合维生素C。'
-                  + '饮食管理是系统性红斑狼疮治疗的重要组成部分。患者应严格遵循临床医师的个体化指导，结合自身病情制定科学食谱，避免盲目跟风。通过合理饮食、规范用药和定期随访，可有效控制病情，提升生活质量。`;'
+                  + '5. 结合用户的健康数据和历史笔记内容，给出具体的、可操作的建议\n'
+                  + '6. 你可以访问用户的历史笔记内容，这些笔记可能包含用户的生活习惯、饮食记录、健康问题等信息，请结合这些信息提供更个性化的建议\n'
+                  + '对话禁止出现md格式的文档，严格按照正常的普通文本格式输出\n'
+                  + '对话禁止出现特殊符号，比如"#"和"*"\n'
+                  + '当用户问到关于吃饭、做饭、吃什么等问题时，你可以提供健康饮食建议和食谱推荐。\n'
+                  + '健康饮食知识如下：\n'
+                  + '推荐食物：营养助力健康\n'
+                  + '1. Omega-3脂肪酸的食物\n'
+                  + '推荐种类：深海鱼类（三文鱼、鲭鱼）、亚麻籽及核桃等富含Omega-3脂肪酸的食物。\n'
+                  + '作用：有助于抗炎、保护心血管健康、促进大脑发育。\n'
+                  + '建议：每周摄入深海鱼类2-3次（单次建议量150-200g），或每日补充亚麻籽油15-20mL（约一汤匙）。\n'
+                  + '2. 抗氧化蔬果\n'
+                  + '推荐种类：西兰花、蓝莓、胡萝卜、紫甘蓝、南瓜、番茄、菠菜等。\n'
+                  + '作用：通过中和氧自由基，减少氧化损伤，增强免疫力。\n'
+                  + '建议：每日摄入至少5种不同颜色的蔬果，保证营养均衡。\n'
+                  + '3. 优质蛋白质摄入\n'
+                  + '植物蛋白：推荐豆腐、豆浆、豆类等，有助于降低胆固醇。\n'
+                  + '动物蛋白：建议选用低脂乳制品（脱脂牛奶、酸奶）、瘦肉、鱼类、鸡蛋等。\n'
+                  + '作用：维持肌肉量，促进组织修复，增强免疫力。\n'
+                  + '4. 低盐、低脂饮食\n'
+                  + '盐分控制：建议每日食盐摄入量＜5克，严格限制腌制食品、加工肉制品。\n'
+                  + '健康油脂：推荐使用橄榄油、茶籽油等植物油替代动物油。\n'
+                  + '作用：降低高血压、心血管疾病风险。\n'
+                  + '5. 补钙与维生素D\n'
+                  + '高钙食物：黑芝麻、虾皮、奶制品、豆制品、绿叶蔬菜等。\n'
+                  + '维生素D来源：适量晒太阳、食用富含维生素D的食物（如鱼类、蛋黄），必要时可补充维生素D。\n'
+                  + '作用：维持骨骼健康，预防骨质疏松。\n'
+                  + '需谨慎或避免的食物\n'
+                  + '1. 高盐、高糖、高脂食品\n'
+                  + '腌制食品（咸菜、腊肉）、甜点、油炸食品、肥肉等可能增加心血管疾病风险，应适量摄入。\n'
+                  + '2. 过度加工食品\n'
+                  + '含有大量添加剂、防腐剂的加工食品，营养价值低，应尽量选择天然食物。\n'
+                  + '3. 过量酒精\n'
+                  + '过量饮酒可能加重肝脏负担，影响健康，建议适量或避免饮酒。\n'
+                  + '4. 含糖饮料\n'
+                  + '碳酸饮料、果汁饮料等含糖量高，建议多喝白开水、淡茶等。\n'
+                  + '健康饮食原则\n'
+                  + '1. 均衡营养：保证碳水化合物、蛋白质、脂肪、维生素、矿物质的均衡摄入。\n'
+                  + '2. 适量原则：控制总热量摄入，避免暴饮暴食。\n'
+                  + '3. 多样化：食物种类多样化，保证营养全面。\n'
+                  + '4. 规律饮食：定时定量，三餐规律，避免过度节食或暴食。\n'
+                  + '5. 个体化：根据个人身体状况、活动量、年龄等因素调整饮食方案。\n'
+                  + '当用户询问饮食问题时，请结合以上健康饮食知识和用户的历史笔记内容，提供科学、实用的建议。`;'
               } as Message,
               ...this.aiMessages,
               {
@@ -391,7 +713,7 @@ struct Index {
                 content: healthDataStr
               } as Message
             ] as Message[],
-            max_tokens: 1000
+            max_tokens: 2000
           })
         }
       );
@@ -426,311 +748,727 @@ struct Index {
     }
   }
 
-  // 笔记页面UI
-  @Builder
-  NotePage() {
-    Column() {
-      // 顶部导航栏
-      Row() {
-        Text('眨眼笔记')
-          .fontSize(22)
-          .fontWeight(FontWeight.Bold)
-        Blank()
-        Image($r("app.media.about"))
-          .width(24)
-          .height(24)
-          .onClick(() => {
-            router.pushUrl({ url: 'pages/Settings' });
-          })
-      }
-      .width('100%')
-      .height(66)
-      .padding({
-        left: 16,
-        right: 16,
-        top: 12,
-        bottom: 12
-      })
-      .backgroundColor($r("app.color.backgroundColor"))
+// 笔记页面UI
+@Builder
+NotePage() {
+    Scroll() {
+      Column() {
+        // 顶部导航栏
+        Row() {
+          Text('EyesNote')
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
+          .fontColor(this.getThemeColor('textColor'))
+          Blank()
+          Image($r("app.media.ic_setting"))
+            .width(28)
+            .height(28)
+            .padding(4)
+            .onClick(() => {
+              router.pushUrl({ url: 'pages/Settings' });
+            })
+        }
+        .width('100%')
+        .height(56)
+        .padding({
+          left: 20,
+          right: 20,
+          top: 8,
+          bottom: 8
+        })
+      .backgroundColor(this.getThemeColor('backgroundColor'))
 
       // 模板卡片
       Column() {
-        Text('📋 快速模板')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .fontColor($r("app.color.TextColor"))
-          .margin({ bottom: 8 })
+        Row() {
+          Text('📋 快速模板')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+          .fontColor(this.getThemeColor('textColor'))
+          Blank()
+        }
+        .width('100%')
+        .padding({ left: 20, right: 20, bottom: 12 })
 
         Scroll() {
-          Row({ space: 8 }) {
-            ForEach(this.allTemplates, (template: string, index: number) => {
-              Column() {
-                Text(template)
-                  .fontSize(12)
-                  .maxLines(3)
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .width('100%')
-                  .padding(8)
+          Row({ space: 12 }) {
+            ForEach(this.allTemplates, (template: Template) => {
+              Column({ space: 10 }) {
+                // 图标和名称
+                Column({ space: 6 }) {
+                  Text(template.icon)
+                    .fontSize(32)
+                    .width('100%')
+                    .textAlign(TextAlign.Center)
+                    .margin({ top: 8 })
+                  
+                  Text(template.name)
+                    .fontSize(15)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor(this.getThemeColor('textColor'))
+                    .maxLines(1)
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .width('100%')
+                    .textAlign(TextAlign.Center)
+                    .padding({ left: 8, right: 8 })
+                  
+                  // 描述
+                  if (template.description) {
+                    Text(template.description)
+                      .fontSize(11)
+                      .fontColor('#999999')
+                      .maxLines(2)
+                      .textOverflow({ overflow: TextOverflow.Ellipsis })
+                      .width('100%')
+                      .textAlign(TextAlign.Center)
+                      .padding({ left: 8, right: 8, bottom: 4 })
+                  }
+                  
+                  // 分类标签
+                  if (template.category) {
+                    Text(template.category)
+                      .fontSize(10)
+                      .fontColor('#007AFF')
+                      .backgroundColor('#E3F2FD')
+                      .padding({ left: 6, right: 6, top: 2, bottom: 2 })
+                      .borderRadius(8)
+                      .margin({ top: 4 })
+                  }
+                }
+                .width('100%')
+                .layoutWeight(1)
+                
+                // 使用按钮
                 Button('使用')
                   .width('100%')
-                  .height(28)
-                  .fontSize(12)
+                  .height(36)
+                  .fontSize(14)
+                  .fontColor('#FFFFFF')
+                  .backgroundColor(this.getThemeColor('accentColor'))
+                  .borderRadius(8)
+                  .margin({ bottom: 12, left: 12, right: 12 })
                   .onClick(() => {
-                    this.currentNote = template;
+                    this.currentNote = template.content;
+                    promptAction.showToast({
+                      message: `已应用模板：${template.name}`,
+                      duration: 1500
+                    });
                   })
               }
-              .width(120)
-              .height(100)
-              .padding(8)
-              .backgroundColor($r("app.color.backgroundColor"))
-              .borderRadius(8)
-            })
+              .width(140)
+              .height(180)
+              .backgroundColor(this.getThemeColor('cardColor'))
+              .borderRadius(16)
+              .shadow({
+                radius: 8,
+                color: '#00000012',
+                offsetX: 0,
+                offsetY: 4
+              })
+              .onClick(() => {
+                // 点击卡片也可以使用模板
+                this.currentNote = template.content;
+                promptAction.showToast({
+                  message: `已应用模板：${template.name}`,
+                  duration: 1500
+                });
+              })
+            }, (template: Template) => template.id)
           }
-          .padding({ left: 16, right: 16 })
+          .padding({ left: 20, right: 20 })
         }
         .scrollable(ScrollDirection.Horizontal)
         .edgeEffect(EdgeEffect.Spring)
       }
-      .padding({ top: 16, bottom: 8 })
+      .padding({ top: 20, bottom: 16 })
 
-      Divider().strokeWidth(1).color('#1F000000')
+      Divider().strokeWidth(0.5).color('#E5E5EA').margin({ left: 20, right: 20 })
 
       // 当前笔记输入区
-      Column() {
-        Text('当前笔记')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .margin({ bottom: 8 })
-
-        TextInput({ placeholder: '写下你的想法…', text: $$this.currentNote })
-          .width('100%')
-          .height(100)
-          .backgroundColor($r("app.color.backgroundColor"))
-          .borderRadius(8)
-
-        Row({ space: 8 }) {
-          Button('保存')
-            .layoutWeight(1)
-            .onClick(() => {
-              this.saveNote();
-            })
-
-          Button('AI分析')
-            .layoutWeight(1)
-            .backgroundColor('#FF4CAF50')
-            .onClick(() => {
-              this.analyzeNoteWithAI();
-            })
-            .enabled(!this.isAnalyzing)
+      Column({ space: 12 }) {
+        Row() {
+          Text('当前笔记')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.getThemeColor('textColor'))
+          Blank()
+          Text(`${this.getNoteWordCount(this.currentNote)} 字`)
+            .fontSize(12)
+            .fontColor('#999999')
         }
         .width('100%')
-        .margin({ top: 8 })
 
-        // 新增：AI分析加载动画
-        if (this.showLoading) {
-          Row() {
-            LoadingProgress()
-              .color('#007AFF')
-              .width(24)
-              .height(24)
-            Text('AI正在分析，请稍候...')
-              .fontSize(14)
-              .fontColor($r("app.color.TextColor"))
-              .margin({ left: 8 })
-          }
-          .margin({ top: 12 })
-          .justifyContent(FlexAlign.Center)
+        Stack() {
+          TextInput({ placeholder: '点击进入编辑模式…', text: $$this.currentNote })
+            .width('100%')
+            .height(120)
+            .backgroundColor(this.getThemeColor('cardColor'))
+            .borderRadius(12)
+            .padding(16)
+            .fontSize(15)
+            .fontColor(this.getThemeColor('textColor'))
+            .placeholderColor('#999999')
+            .enabled(false)
+          
+          // 可点击的覆盖层
+          Row()
+            .width('100%')
+            .height(120)
+            .onClick(() => {
+              this.openNoteEditor();
+            })
         }
+        .width('100%')
+        .height(120)
       }
-      .padding(16)
+      .width('100%')
+      .padding({ left: 20, right: 20, top: 16, bottom: 16 })
 
-      Divider().strokeWidth(1).color('#1F000000')
+      Divider().strokeWidth(0.5).color('#E5E5EA').margin({ left: 20, right: 20 })
 
       // 历史笔记列表
       Column() {
-        Text('历史笔记')
-          .fontSize(16)
-          .fontWeight(FontWeight.Medium)
-          .margin({ bottom: 8 })
+        Row() {
+          Text('历史笔记')
+            .fontSize(18)
+            .fontWeight(FontWeight.Medium)
+            .fontColor(this.getThemeColor('textColor'))
+          Blank()
+          // 搜索按钮
+          Text(this.showSearch ? '取消' : '🔍')
+            .fontSize(18)
+            .fontColor(this.getThemeColor('textColor'))
+            .onClick(() => {
+              this.showSearch = !this.showSearch;
+              if (!this.showSearch) {
+                this.searchKeyword = '';
+                this.filterNotes();
+              }
+            })
+        }
+        .width('100%')
+        .padding({ left: 20, right: 20, bottom: 12 })
 
-        List({ space: 8 }) {
-          ForEach(this.historyNotes, (note: string, index: number) => {
-            ListItem() {
-              Row() {
-                Text(note)
-                  .fontSize(14)
-                  .maxLines(2)
-                  .fontColor($r("app.color.reTextColor"))
-                  .textOverflow({ overflow: TextOverflow.Ellipsis })
-                  .layoutWeight(1)
-                Image($r('app.media.ic_delete'))
-                  .width(18)
-                  .height(18)
-                  .onClick(() => {
-                    this.deleteNote(index);
-                  })
+        // 搜索框
+        if (this.showSearch) {
+          Row({ space: 8 }) {
+            TextInput({ placeholder: '搜索笔记...', text: $$this.searchKeyword })
+              .layoutWeight(1)
+              .height(40)
+              .backgroundColor(this.getThemeColor('cardColor'))
+              .borderRadius(20)
+              .padding({ left: 16, right: 16 })
+              .fontSize(14)
+              .onChange((value: string) => {
+                this.searchKeyword = value;
+                this.filterNotes();
+              })
+            if (this.searchKeyword.length > 0) {
+              Image($r('app.media.ic_close'))
+                .width(20)
+                .height(20)
+                .onClick(() => {
+                  this.searchKeyword = '';
+                  this.filterNotes();
+                })
+            }
+          }
+          .width('100%')
+          .padding({ left: 20, right: 20, bottom: 12 })
+        }
+
+        Column({ space: 12 }) {
+          if (this.filteredNotes.length === 0) {
+            Column() {
+              Text('暂无笔记')
+                .fontSize(16)
+                .fontColor('#999999')
+                .margin({ top: 40, bottom: 40 })
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Center)
+          } else {
+            ForEach(this.filteredNotes, (note: string, index: number) => {
+              Row({ space: 12 }) {
+                Column({ space: 6 }) {
+                  Text(note)
+                    .fontSize(15)
+                    .maxLines(2)
+                    .fontColor(this.getThemeColor('textColor'))
+                    .textOverflow({ overflow: TextOverflow.Ellipsis })
+                    .lineHeight(22)
+                    .width('100%')
+                  Row() {
+                    Text(`${this.getNoteWordCount(note)} 字`)
+                      .fontSize(12)
+                      .fontColor('#999999')
+                    Blank()
+                  }
+                  .width('100%')
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+                
+                Row({ space: 4 }) {
+                  Image($r('app.media.ic_about'))
+                    .width(30)
+                    .height(30)
+                  .fillColor(this.getThemeColor('accentColor'))
+                    .padding(6)
+                    .onClick(() => {
+                      this.shareNote(note);
+                    })
+                  Image($r('app.media.ic_delete'))
+                    .width(30)
+                    .height(30)
+                    .padding(6)
+                    .onClick(() => {
+                      this.deleteNote(index);
+                    })
+                }
+                .alignItems(VerticalAlign.Center)
               }
               .width('100%')
-              .padding(12)
-              .backgroundColor('#FFF5F5F5')
-              .borderRadius(8)
-              .onClick(() => {
-                this.openNoteDetail(note, index);
+              .padding({ left: 16, right: 16, top: 16, bottom: 16 })
+              .backgroundColor(this.getThemeColor('cardColor'))
+              .borderRadius(12)
+              .shadow({
+                radius: 2,
+                color: '#00000006',
+                offsetX: 0,
+                offsetY: 1
               })
-            }
-          }, (note: string, index: number) => `${note}_${index}`)
+              .onClick(() => {
+                const originalIndex = this.historyNotes.indexOf(note);
+                this.openNoteDetail(note, originalIndex);
+              })
+            }, (note: string, index: number) => `${note}_${index}`)
+          }
         }
-        .layoutWeight(1)
-        .padding({ left: 16, right: 16 })
-        .scrollBar(BarState.Auto)
-        .edgeEffect(EdgeEffect.Spring)
+        .width('100%')
+        .padding({ left: 20, right: 20 })
       }
       .padding({ top: 8 })
-      .layoutWeight(1)
+      .width('100%')
+      .margin({ bottom: 20 })
+      }
+      .width('100%')
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r("app.color.backgroundColor"))
+    .scrollBar(BarState.Auto)
+    .edgeEffect(EdgeEffect.Spring)
+    .backgroundColor(this.getThemeColor('backgroundColor'))
   }
 
   // 健康页面UI
   @Builder
   HealthPage() {
     Scroll() {
-      Column({ space: 16 }) {
-        // 顶部标题
-        Text('健康追踪')
-          .fontSize(22)
-          .fontWeight(FontWeight.Bold)
-          .fontColor($r("app.color.TextColor"))
-          .margin({ top: 20, bottom: 10 })
+      Column({ space: 20 }) {
+        // 顶部标题和同步按钮
+        Row() {
+          Text('健康追踪')
+            .fontSize(24)
+            .fontWeight(FontWeight.Bold)
+            .fontColor(this.getThemeColor('textColor'))
+          Blank()
+          Button(this.isSyncing ? '同步中...' : '🔄 同步')
+            .fontSize(14)
+            .fontColor('#FFFFFF')
+            .backgroundColor(this.getThemeColor('accentColor'))
+            .borderRadius(16)
+            .height(32)
+            .padding({ left: 12, right: 12 })
+            .enabled(!this.isSyncing)
+            .onClick(() => {
+              this.syncHealthKitData();
+            })
+        }
+        .width('100%')
+        .margin({ top: 24, bottom: 8 })
+        .padding({ left: 20, right: 20 })
 
         // 饮水追踪
-        Card() {
-          Column({ space: 12 }) {
+        Card({ cardColor: this.getThemeColor('cardColor') }) {
+          Column({ space: 16 }) {
+            Row() {
             Text('💧 今日饮水')
               .fontSize(18)
               .fontWeight(FontWeight.Medium)
+                .fontColor(this.getThemeColor('textColor'))
+              Blank()
+              Text(`目标: ${this.waterGoal}杯`)
+                .fontSize(12)
+                .fontColor('#666666')
+            }
+            .width('100%')
 
-            Text(`${this.waterCount} 杯`)
-              .fontSize(24)
+            Text(`${this.waterCount} / ${this.waterGoal} 杯`)
+              .fontSize(32)
               .fontWeight(FontWeight.Bold)
               .fontColor('#007AFF')
+              .margin({ top: 8, bottom: 8 })
 
-            Row({ space: 20 }) {
+            // 进度条
+            Row() {
+              Row()
+                .width(`${Math.min(100, (this.waterCount / this.waterGoal) * 100)}%`)
+                .height(6)
+                .backgroundColor('#007AFF')
+                .borderRadius(3)
+              Row()
+                .layoutWeight(1)
+                .height(6)
+                .backgroundColor('#E5E5EA')
+                .borderRadius(3)
+            }
+            .width('100%')
+            .height(6)
+            .borderRadius(3)
+            .backgroundColor('#E5E5EA')
+
+            Row({ space: 16 }) {
               Button('-')
-                .width(40)
-                .height(40)
-                .borderRadius(20)
+                .width(48)
+                .height(48)
+                .borderRadius(24)
+                .fontSize(20)
+                .fontColor('#FFFFFF')
+                .backgroundColor('#FF3B30')
                 .onClick((): void => this.decrementWater())
 
               Button('+')
-                .width(40)
-                .height(40)
-                .borderRadius(20)
+                .width(48)
+                .height(48)
+                .borderRadius(24)
+                .fontSize(20)
+                .fontColor('#FFFFFF')
+                .backgroundColor('#34C759')
                 .onClick((): void => this.incrementWater())
             }
           }
           .width('100%')
-          .padding(20)
+          .padding(24)
         }
 
         // 睡眠记录
-        Card() {
-          Column({ space: 12 }) {
+        Card({ cardColor: this.getThemeColor('cardColor') }) {
+          Column({ space: 16 }) {
+            Row() {
             Text('😴 睡眠时间')
               .fontSize(18)
               .fontWeight(FontWeight.Medium)
+                .fontColor(this.getThemeColor('textColor'))
+              Blank()
+              Text(`目标: ${this.sleepGoal}小时`)
+                .fontSize(12)
+                .fontColor('#666666')
+            }
+            .width('100%')
 
-            Text(`${this.sleepHours} 小时`)
-              .fontSize(24)
+            Text(`${this.sleepHours} / ${this.sleepGoal} 小时`)
+              .fontSize(32)
               .fontWeight(FontWeight.Bold)
               .fontColor('#34C759')
+              .margin({ top: 8, bottom: 8 })
 
-            Row({ space: 20 }) {
+            // 进度条
+            Row() {
+              Row()
+                .width(`${Math.min(100, (this.sleepHours / this.sleepGoal) * 100)}%`)
+                .height(6)
+                .backgroundColor('#34C759')
+                .borderRadius(3)
+              Row()
+                .layoutWeight(1)
+                .height(6)
+                .backgroundColor('#E5E5EA')
+                .borderRadius(3)
+            }
+            .width('100%')
+            .height(6)
+            .borderRadius(3)
+            .backgroundColor('#E5E5EA')
+
+            Row({ space: 16 }) {
               Button('-')
-                .width(40)
-                .height(40)
-                .borderRadius(20)
+                .width(48)
+                .height(48)
+                .borderRadius(24)
+                .fontSize(20)
+                .fontColor('#FFFFFF')
+                .backgroundColor('#FF3B30')
                 .onClick((): void => this.changeSleep(-1))
 
               Button('+')
-                .width(40)
-                .height(40)
-                .borderRadius(20)
+                .width(48)
+                .height(48)
+                .borderRadius(24)
+                .fontSize(20)
+                .fontColor('#FFFFFF')
+                .backgroundColor('#34C759')
                 .onClick((): void => this.changeSleep(1))
             }
           }
           .width('100%')
-          .padding(20)
+          .padding(24)
         }
 
         // 步数统计
-        Card() {
-          Column({ space: 12 }) {
+        Card({ cardColor: this.getThemeColor('cardColor') }) {
+          Column({ space: 16 }) {
+            Row() {
             Text('🚶 今日步数')
               .fontSize(18)
               .fontWeight(FontWeight.Medium)
+                .fontColor(this.getThemeColor('textColor'))
+              Blank()
+              Text(`目标: ${this.stepsGoal}步`)
+                .fontSize(12)
+                .fontColor('#666666')
+            }
+            .width('100%')
 
-            Text(`${this.stepsCount} 步`)
-              .fontSize(24)
+            Text(`${this.stepsCount} / ${this.stepsGoal} 步`)
+              .fontSize(32)
               .fontWeight(FontWeight.Bold)
               .fontColor('#FF9500')
+              .margin({ top: 8, bottom: 8 })
 
-            Row({ space: 20 }) {
+            // 进度条
+            Row() {
+              Row()
+                .width(`${Math.min(100, (this.stepsCount / this.stepsGoal) * 100)}%`)
+                .height(6)
+                .backgroundColor('#FF9500')
+                .borderRadius(3)
+              Row()
+                .layoutWeight(1)
+                .height(6)
+                .backgroundColor('#E5E5EA')
+                .borderRadius(3)
+            }
+            .width('100%')
+            .height(6)
+            .borderRadius(3)
+            .backgroundColor('#E5E5EA')
+
+            Row({ space: 16 }) {
               Button('-100')
-                .width(60)
-                .height(40)
-                .borderRadius(20)
-                .fontSize(12)
+                .width(72)
+                .height(48)
+                .borderRadius(24)
+                .fontSize(14)
+                .fontColor('#FFFFFF')
+                .backgroundColor('#FF3B30')
                 .onClick((): void => this.decrementSteps())
 
               Button('+100')
-                .width(60)
-                .height(40)
-                .borderRadius(20)
-                .fontSize(12)
+                .width(72)
+                .height(48)
+                .borderRadius(24)
+                .fontSize(14)
+                .fontColor('#FFFFFF')
+                .backgroundColor('#34C759')
                 .onClick((): void => this.incrementSteps())
             }
           }
           .width('100%')
-          .padding(20)
+          .padding(24)
         }
 
         // 心情记录
-        Card() {
-          Column({ space: 12 }) {
+        Card({ cardColor: this.getThemeColor('cardColor') }) {
+          Column({ space: 16 }) {
             Text('😊 今日心情')
               .fontSize(18)
               .fontWeight(FontWeight.Medium)
+              .fontColor(this.getThemeColor('textColor'))
 
             Text(this.mood)
-              .fontSize(24)
+              .fontSize(32)
               .fontWeight(FontWeight.Bold)
               .fontColor('#AF52DE')
+              .margin({ top: 8, bottom: 8 })
 
             Row({ space: 10 }) {
               ForEach(['开心', '平静', '疲惫', '焦虑', '兴奋'], (moodOption: string) => {
                 Button(moodOption)
-                  .height(35)
-                  .borderRadius(18)
-                  .fontSize(12)
-                  .backgroundColor(this.mood === moodOption ? '#AF52DE' : '#E5E5EA')
+                  .height(40)
+                  .borderRadius(20)
+                  .fontSize(14)
+                  .fontColor(this.mood === moodOption ? '#FFFFFF' : this.getThemeColor('textColor'))
+                  .backgroundColor(this.mood === moodOption ? '#AF52DE' : '#F2F2F7')
                   .onClick((): void => this.changeMood(moodOption))
               })
             }
             .width('100%')
             .justifyContent(FlexAlign.SpaceEvenly)
+            .padding({ top: 4 })
           }
           .width('100%')
-          .padding(20)
+          .padding(24)
+        }
+
+        // 健康目标设置
+        Card({ cardColor: this.getThemeColor('cardColor') }) {
+          Column({ space: 16 }) {
+            Text('🎯 健康目标设置')
+              .fontSize(18)
+              .fontWeight(FontWeight.Medium)
+              .fontColor(this.getThemeColor('textColor'))
+              .width('100%')
+
+            // 饮水目标
+            Column({ space: 10 }) {
+              Row() {
+                Text('💧 饮水目标')
+                  .fontSize(15)
+                  .fontColor(this.getThemeColor('textColor'))
+                Blank()
+                Text(`${this.waterGoal} 杯`)
+                  .fontSize(15)
+                  .fontColor('#007AFF')
+                  .fontWeight(FontWeight.Medium)
+              }
+              .width('100%')
+              Row({ space: 12 }) {
+                Button('-')
+                  .layoutWeight(1)
+                  .height(40)
+                  .fontSize(16)
+                  .fontColor('#FFFFFF')
+                  .backgroundColor('#FF3B30')
+                  .borderRadius(20)
+                  .onClick(() => {
+                    if (this.waterGoal > 1) {
+                      this.waterGoal -= 1;
+                      this.saveHealthData();
+                    }
+                  })
+                Button('+')
+                  .layoutWeight(1)
+                  .height(40)
+                  .fontSize(16)
+                  .fontColor('#FFFFFF')
+                  .backgroundColor('#34C759')
+                  .borderRadius(20)
+                  .onClick(() => {
+                    this.waterGoal += 1;
+                    this.saveHealthData();
+                  })
+              }
+              .width('100%')
+            }
+            .width('100%')
+
+            Divider()
+              .strokeWidth(0.5)
+              .color('#E5E5EA')
+              .margin({ top: 8, bottom: 8 })
+
+            // 睡眠目标
+            Column({ space: 10 }) {
+              Row() {
+                Text('😴 睡眠目标')
+                  .fontSize(15)
+                  .fontColor(this.getThemeColor('textColor'))
+                Blank()
+                Text(`${this.sleepGoal} 小时`)
+                  .fontSize(15)
+                  .fontColor('#34C759')
+                  .fontWeight(FontWeight.Medium)
+              }
+              .width('100%')
+              Row({ space: 12 }) {
+                Button('-')
+                  .layoutWeight(1)
+                  .height(40)
+                  .fontSize(16)
+                  .fontColor('#FFFFFF')
+                  .backgroundColor('#FF3B30')
+                  .borderRadius(20)
+                  .onClick(() => {
+                    if (this.sleepGoal > 1) {
+                      this.sleepGoal -= 1;
+                      this.saveHealthData();
+                    }
+                  })
+                Button('+')
+                  .layoutWeight(1)
+                  .height(40)
+                  .fontSize(16)
+                  .fontColor('#FFFFFF')
+                  .backgroundColor('#34C759')
+                  .borderRadius(20)
+                  .onClick(() => {
+                    this.sleepGoal += 1;
+                    this.saveHealthData();
+                  })
+              }
+              .width('100%')
+            }
+            .width('100%')
+
+            Divider()
+              .strokeWidth(0.5)
+              .color('#E5E5EA')
+              .margin({ top: 8, bottom: 8 })
+
+            // 步数目标
+            Column({ space: 10 }) {
+              Row() {
+                Text('🚶 步数目标')
+                  .fontSize(15)
+                  .fontColor(this.getThemeColor('textColor'))
+                Blank()
+                Text(`${this.stepsGoal} 步`)
+                  .fontSize(15)
+                  .fontColor('#FF9500')
+                  .fontWeight(FontWeight.Medium)
+              }
+              .width('100%')
+              Row({ space: 12 }) {
+                Button('-1000')
+                  .layoutWeight(1)
+                  .height(40)
+                  .fontSize(14)
+                  .fontColor('#FFFFFF')
+                  .backgroundColor('#FF3B30')
+                  .borderRadius(20)
+                  .onClick(() => {
+                    if (this.stepsGoal >= 1000) {
+                      this.stepsGoal -= 1000;
+                      this.saveHealthData();
+                    }
+                  })
+                Button('+1000')
+                  .layoutWeight(1)
+                  .height(40)
+                  .fontSize(14)
+                  .fontColor('#FFFFFF')
+                  .backgroundColor('#34C759')
+                  .borderRadius(20)
+                  .onClick(() => {
+                    this.stepsGoal += 1000;
+                    this.saveHealthData();
+                  })
+              }
+              .width('100%')
+            }
+            .width('100%')
+          }
+          .width('100%')
+          .padding(24)
         }
       }
-      .padding(16)
+      .width('100%')
+      .padding({ left: 20, right: 20, bottom: 20 })
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r("app.color.backgroundColor"))
+    .backgroundColor(this.getThemeColor('backgroundColor'))
   }
 
   // ai页面UI
@@ -738,23 +1476,24 @@ struct Index {
   AIPage() {
     Column() {
       // 顶部标题
-      Row() {
+      Column() {
         Text('健康Deepseek')
-          .fontSize(22)
+          .fontSize(24)
           .fontWeight(FontWeight.Bold)
-        Blank()
-
-        Text('\n系统性红斑狼疮(贫血症状特供版)')
+          .fontColor(this.getThemeColor('textColor'))
+        Text('您的专属健康顾问')
           .fontSize(12)
-          .fontWeight(FontWeight.Bold)
-        Blank()
+          .fontColor(this.getThemeColor('mutedTextColor'))
+          .margin({ top: 4 })
       }
       .width('100%')
       .height(66)
-      .padding(16)
-      .backgroundColor($r("app.color.backgroundColor"))
+      .padding({ left: 20, right: 20, top: 12, bottom: 12 })
+      .justifyContent(FlexAlign.Start)
+      .alignItems(HorizontalAlign.Start)
+      .backgroundColor(this.getThemeColor('backgroundColor'))
 
-      Divider().strokeWidth(1).color('#1F000000')
+      Divider().strokeWidth(0.5).color('#E5E5EA')
 
       // 聊天记录
       Scroll() {
@@ -766,63 +1505,64 @@ struct Index {
                 Blank()
                 Column() {
                   Text(message.content)
-                    .fontSize(16)
+                    .fontSize(15)
                     .fontColor('#FFFFFF')
-                    .backgroundColor('#007AFF')
+                    .lineHeight(22)
+                    .backgroundColor(this.getThemeColor('accentColor'))
                     .padding({
-                      top: 12,
-                      bottom: 12,
-                      left: 16,
-                      right: 16
+                      top: 14,
+                      bottom: 14,
+                      left: 18,
+                      right: 18
                     })
                     .borderRadius({
                       topLeft: 20,
-                      topRight: 4,
+                      topRight: 6,
                       bottomLeft: 20,
                       bottomRight: 20
                     })
-                    .constraintSize({ maxWidth: '80%' })
-                    .textAlign(TextAlign.End)
+                    .constraintSize({ maxWidth: '75%' })
                 }
               }
               .width('100%')
               .padding({
-                left: 16,
-                right: 16,
-                top: 8,
-                bottom: 8
+                left: 20,
+                right: 20,
+                top: 10,
+                bottom: 10
               })
             } else {
               // AI消息 - 左侧对齐的气泡，带头像
               Row() {
                 Image($r('app.media.ic_ai'))
-                  .width(36)
-                  .height(36)
-                  .borderRadius(18)
-                  .margin({ right: 8 })
+                  .width(40)
+                  .height(40)
+                  .borderRadius(20)
+                  .margin({ right: 12 })
                 Column() {
                   Text(message.content)
-                    .fontSize(16)
-                    .fontColor('#333333')
-                    .backgroundColor($r("app.color.deepseekcolor"))
+                    .fontSize(15)
+                    .fontColor(this.getThemeColor('textColor'))
+                    .lineHeight(22)
+                    .backgroundColor(this.getThemeColor('cardColor'))
                     .padding({
-                      top: 12,
-                      bottom: 12,
-                      left: 16,
-                      right: 16
+                      top: 14,
+                      bottom: 14,
+                      left: 18,
+                      right: 18
                     })
                     .borderRadius({
-                      topLeft: 4,
+                      topLeft: 6,
                       topRight: 20,
                       bottomLeft: 20,
                       bottomRight: 20
                     })
-                    .constraintSize({ maxWidth: '80%' })
+                    .constraintSize({ maxWidth: '75%' })
                     .shadow({
-                      radius: 2,
-                      color: '#00000010',
+                      radius: 3,
+                      color: '#00000008',
                       offsetX: 0,
-                      offsetY: 1
+                      offsetY: 2
                     })
                 }
 
@@ -830,10 +1570,10 @@ struct Index {
               }
               .width('100%')
               .padding({
-                left: 16,
-                right: 16,
-                top: 8,
-                bottom: 8
+                left: 20,
+                right: 20,
+                top: 10,
+                bottom: 10
               })
               .alignItems(VerticalAlign.Top)
             }
@@ -843,38 +1583,39 @@ struct Index {
           if (this.isAIChatting) {
             Row() {
               Image($r('app.media.ic_ai'))
-                .width(36)
-                .height(36)
-                .borderRadius(18)
-                .margin({ right: 8 })
+                .width(40)
+                .height(40)
+                .borderRadius(20)
+                .margin({ right: 12 })
               Column() {
                 Row() {
                   LoadingProgress()
-                    .color('#007AFF')
-                    .width(20)
-                    .height(20)
+                    .color(this.getThemeColor('accentColor'))
+                    .width(18)
+                    .height(18)
                   Text('AI正在思考...')
                     .fontSize(14)
-                    .margin({ left: 8 })
+                    .fontColor('#666666')
+                    .margin({ left: 10 })
                 }
                 .padding({
-                  top: 12,
-                  bottom: 12,
-                  left: 16,
-                  right: 16
+                  top: 14,
+                  bottom: 14,
+                  left: 18,
+                  right: 18
                 })
-                .backgroundColor($r("app.color.deepseekcolor"))
+                .backgroundColor(this.getThemeColor('cardColor'))
                 .borderRadius({
-                  topLeft: 4,
+                  topLeft: 6,
                   topRight: 20,
                   bottomLeft: 20,
                   bottomRight: 20
                 })
                 .shadow({
-                  radius: 2,
-                  color: '#00000010',
+                  radius: 3,
+                  color: '#00000008',
                   offsetX: 0,
-                  offsetY: 1
+                  offsetY: 2
                 })
               }
 
@@ -882,49 +1623,54 @@ struct Index {
             }
             .width('100%')
             .padding({
-              left: 16,
-              right: 16,
-              top: 8,
-              bottom: 8
+              left: 20,
+              right: 20,
+              top: 10,
+              bottom: 10
             })
             .alignItems(VerticalAlign.Top)
           }
         }
         .width('100%')
-        .padding({ top: 8, bottom: 8 })
+        .padding({ top: 12, bottom: 12 })
       }
       .layoutWeight(1)
       .scrollBar(BarState.Auto)
 
       // 输入区域
-      Row() {
+      Row({ space: 12 }) {
         TextInput({
           placeholder: '输入你的问题...',
           text: $$this.aiInput
         })
           .layoutWeight(1)
-          .height(48)
-          .backgroundColor('#b22a6ab5')
-          .borderRadius(24)
-          .padding({ left: 16, right: 16 })
+          .height(50)
+          .backgroundColor(this.getThemeColor('cardColor'))
+          .borderRadius(25)
+          .padding({ left: 18, right: 18 })
+          .fontSize(15)
+          .fontColor(this.getThemeColor('textColor'))
+          .placeholderColor('#999999')
 
         Button('发送')
-          .width(80)
-          .height(48)
-          .backgroundColor('#007AFF')
-          .borderRadius(24)
+          .width(70)
+          .height(50)
+          .fontSize(15)
+          .fontColor('#FFFFFF')
+          .backgroundColor(this.getThemeColor('accentColor'))
+          .borderRadius(25)
           .onClick(() => {
             this.sendAIMessage();
           })
           .enabled(!this.isAIChatting)
       }
       .width('100%')
-      .padding(16)
-      .backgroundColor($r("app.color.backgroundColor"))
+      .padding({ left: 20, right: 20, top: 12, bottom: 16 })
+      .backgroundColor(this.getThemeColor('backgroundColor'))
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r("app.color.backblackgroundColor"))
+    .backgroundColor(this.getThemeColor('backgroundColor'))
   }
 
   build() {
@@ -944,67 +1690,73 @@ struct Index {
       // 底部导航栏
       Row() {
         // 笔记页面按钮
-        Column() {
+        Column({ space: 4 }) {
           Image($r('app.media.ic_edit'))
-            .width(24)
-            .height(24)
-            .fillColor(this.selectedIndex === 0 ? '#007AFF' : '#8E8E93')
+            .width(26)
+            .height(26)
+            .fillColor(this.selectedIndex === 0 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
           Text('笔记')
             .fontSize(12)
-            .fontColor(this.selectedIndex === 0 ? '#007AFF' : '#8E8E93')
-            .margin({ top: 4 })
+            .fontColor(this.selectedIndex === 0 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
+            .fontWeight(this.selectedIndex === 0 ? FontWeight.Medium : FontWeight.Normal)
         }
         .layoutWeight(1)
         .onClick(() => {
           this.selectedIndex = 0;
         })
         .alignItems(HorizontalAlign.Center)
+        .padding({ top: 8, bottom: 8 })
 
         // 健康页面按钮
-        Column() {
+        Column({ space: 4 }) {
           Image($r('app.media.ic_right'))
-            .width(24)
-            .height(24)
-            .fillColor(this.selectedIndex === 1 ? '#007AFF' : '#8E8E93')
+            .width(26)
+            .height(26)
+            .fillColor(this.selectedIndex === 1 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
           Text('健康')
             .fontSize(12)
-            .fontColor(this.selectedIndex === 1 ? '#007AFF' : '#8E8E93')
-            .margin({ top: 4 })
+            .fontColor(this.selectedIndex === 1 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
+            .fontWeight(this.selectedIndex === 1 ? FontWeight.Medium : FontWeight.Normal)
         }
         .layoutWeight(1)
         .onClick(() => {
           this.selectedIndex = 1;
         })
         .alignItems(HorizontalAlign.Center)
+        .padding({ top: 8, bottom: 8 })
 
         // AI页面按钮
-        Column() {
+        Column({ space: 4 }) {
           Image($r('app.media.ic_ai'))
             .width(26)
             .height(26)
-            .fillColor(this.selectedIndex === 2 ? '#007AFF' : '#8E8E93')
+            .fillColor(this.selectedIndex === 2 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
           Text('健康Deepseek')
-            .fontSize(12)
-            .fontColor(this.selectedIndex === 2 ? '#007AFF' : '#8E8E93')
-            .margin({ top: 4 })
+            .fontSize(11)
+            .fontColor(this.selectedIndex === 2 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
+            .fontWeight(this.selectedIndex === 2 ? FontWeight.Medium : FontWeight.Normal)
         }
         .layoutWeight(1)
         .onClick(() => {
           this.selectedIndex = 2;
         })
         .alignItems(HorizontalAlign.Center)
+        .padding({ top: 8, bottom: 8 })
       }
-
-      // AI对话界面按钮
-      // 已整合到底部导航栏
-
       .width('100%')
-      .height(56)
-      .backgroundColor($r("app.color.backblackgroundColor"))
-      .border({ width: { top: 1 }, color: '#E5E5EA' })
+      .height(64)
+      .backgroundColor(this.getThemeColor('cardColor'))
+      .border({ width: { top: 0.5 }, color: '#E5E5EA' })
+      .shadow({
+        radius: 8,
+        color: '#00000008',
+        offsetX: 0,
+        offsetY: -2
+      })
     }
     .width('100%')
     .height('100%')
+    .backgroundColor(this.getThemeColor('backgroundColor'))
   }
 }
 
@@ -1012,13 +1764,14 @@ struct Index {
 @Component
 struct Card {
   @BuilderParam content: () => void
+  @Prop cardColor: string = '#FFFFFF'
 
   build() {
     Column() {
       this.content()
     }
     .width('100%')
-    .backgroundColor($r("app.color.HealthbackgroundColor"))
+    .backgroundColor(this.cardColor)
     .borderRadius(12)
     .shadow({
       radius: 8,

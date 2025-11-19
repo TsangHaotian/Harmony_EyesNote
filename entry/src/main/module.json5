@@ -15,6 +15,13 @@
     /* ===== 权限声明开始 ===== */
     "requestPermissions": [
       { "name": "ohos.permission.INTERNET" }
+      /* 注意：Health Kit权限需要根据实际HarmonyOS版本和Health Kit API文档配置
+       * 当前版本可能不支持直接声明Health Kit权限
+       * 实际使用时可能需要：
+       * 1. 通过华为运动健康App的分享功能
+       * 2. 使用系统级健康数据API（如果可用）
+       * 3. 在运行时动态请求权限
+       */
     ],
     /* ===== 权限声明结束 ===== */
 

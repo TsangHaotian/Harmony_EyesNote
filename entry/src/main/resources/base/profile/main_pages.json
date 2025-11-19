@@ -2,6 +2,8 @@
   "src": [
     "pages/Index",
     "pages/Settings",
-    "pages/NoteDetail"
+    "pages/NoteDetail",
+    "pages/NoteEditor",
+    "pages/Statistics"
   ]
 }

@@ -19,6 +19,10 @@
     {
       "name": "write_doc_reason",
       "value": "用于保存编辑后的文档"
+    },
+    {
+      "name": "health_permission_reason",
+      "value": "用于同步华为运动健康的步数和睡眠数据"
     }
   ]
 }

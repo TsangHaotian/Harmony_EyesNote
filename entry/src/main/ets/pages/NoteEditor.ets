@@ -7,9 +7,8 @@ import { ThemePreset } from '../utils/Types';
 import { DEFAULT_THEME_ID, ThemeColorKey, cloneThemePreset, cloneThemePresets, getThemeById, getThemeColorValue } from '../utils/Theme';
 
 // 定义路由参数接口
-interface NoteParams {
-  noteContent?: string;
-  noteIndex?: number;
+interface EditorParams {
+  currentNote?: string; // 当前笔记内容
 }
 
 interface Message {
@@ -27,13 +26,12 @@ interface GeneratedTypeLiteralInterface_4 {
 
 @Entry
 @Component
-struct NoteDetail {
-  @State noteContent: string = '';
+struct NoteEditor {
   @State editedContent: string = '';
-  @State noteIndex: number = -1;
   @State showToolbar: boolean = true; // 工具栏显示状态
   @State isAnalyzing: boolean = false; // AI分析状态
-  @State showLoading: boolean = false; // 加载动画显示
+  @State showLoading: boolean = false; // 加载动画状态
+  analyzedNote: string = ""; // 分析结果
   @State themePresets: ThemePreset[] = cloneThemePresets();
   @State selectedThemeId: string = DEFAULT_THEME_ID;
 
@@ -69,62 +67,69 @@ struct NoteDetail {
     await storage.init(context);
     await this.refreshTheme();
 
-    const params = router.getParams() as NoteParams;
-    this.noteContent = params.noteContent || '';
-    this.noteIndex = params.noteIndex || -1;
-    this.editedContent = this.noteContent;
+    const params = router.getParams() as EditorParams;
+    // 优先从存储中读取最新内容（可能包含AI分析结果）
+    const savedNote = await storage.getCurrentNote();
+    this.editedContent = savedNote || params.currentNote || '';
     
-    // 如果是从存储中恢复的笔记，检查是否有更新
-    if (this.noteIndex >= 0) {
-      const historyNotes = await storage.getHistoryNotes();
-      if (historyNotes[this.noteIndex] && historyNotes[this.noteIndex] !== this.editedContent) {
-        this.editedContent = historyNotes[this.noteIndex];
-        this.noteContent = historyNotes[this.noteIndex];
-      }
-    }
+    // 自动保存当前笔记内容
+    await storage.saveCurrentNote(this.editedContent);
   }
 
-  // 页面显示时检查是否有更新（AI分析可能已完成）
+  // 页面显示时检查是否有更新
   async onPageShow() {
     await this.refreshTheme();
-    if (this.noteIndex >= 0) {
-      const historyNotes = await storage.getHistoryNotes();
-      if (historyNotes[this.noteIndex] && historyNotes[this.noteIndex] !== this.editedContent) {
-        this.editedContent = historyNotes[this.noteIndex];
-        this.noteContent = historyNotes[this.noteIndex];
-      }
+    // 检查存储中是否有更新的内容（AI分析可能已完成）
+    const savedNote = await storage.getCurrentNote();
+    if (savedNote && savedNote !== this.editedContent) {
+      this.editedContent = savedNote;
     }
   }
 
-  async saveNote() {
-    if (this.editedContent.trim() === '') {
+  // 保存当前笔记（同时保存到历史记录）
+  async saveCurrentNote() {
+    if (this.editedContent.trim().length === 0) {
       promptAction.showToast({
-        message: '内容不能为空',
+        message: '笔记内容不能为空',
         duration: 2000
       });
       return;
     }
 
-    if (this.noteIndex >= 0) {
-      // 编辑已有笔记
-      const historyNotes = await storage.getHistoryNotes();
-      historyNotes[this.noteIndex] = this.editedContent;
-      await storage.saveHistoryNotes(historyNotes);
-    } else {
-      // 创建新笔记
-      const historyNotes = await storage.getHistoryNotes();
-      historyNotes.unshift(this.editedContent); // 添加到历史笔记列表的开头
-      await storage.saveHistoryNotes(historyNotes);
-      // 更新索引为0，因为新笔记被添加到了列表开头
-      this.noteIndex = 0;
-    }
+    // 保存到当前笔记
+    await storage.saveCurrentNote(this.editedContent);
     
-    // 返回首页并传递更新后的内容和索引
+    // 保存到历史笔记
+    const historyNotes = await storage.getHistoryNotes();
+    historyNotes.unshift(this.editedContent.trim());
+    await storage.saveHistoryNotes(historyNotes);
+    
+    // 清空当前笔记
+    this.editedContent = '';
+    await storage.saveCurrentNote('');
+    
+    promptAction.showToast({
+      message: '已保存到历史笔记',
+      duration: 2000
+    });
+    
+    // 返回主页面
     router.back({
       url: 'pages/Index',
       params: {
-        content: this.editedContent,
-        index: this.noteIndex
+        currentNote: '',
+        noteSaved: true
+      }
+    });
+  }
+
+  // 保存并返回（只保存到当前笔记，不添加到历史记录）
+  async saveAndBack() {
+    await storage.saveCurrentNote(this.editedContent);
+    router.back({
+      url: 'pages/Index',
+      params: {
+        currentNote: this.editedContent
       }
     });
   }
@@ -134,10 +139,8 @@ struct NoteDetail {
     return this.editedContent.replace(/\s/g, '').length;
   }
 
-  // 插入文本到光标位置
+  // 插入文本到末尾
   insertText(text: string) {
-    // 注意：TextArea组件在HarmonyOS中可能不支持直接插入文本到光标位置
-    // 这里采用追加到末尾的方式
     this.editedContent += text;
   }
 
@@ -155,6 +158,14 @@ struct NoteDetail {
     this.insertText(timeStr);
   }
 
+  // 插入日期时间
+  insertDateTime() {
+    const date = new Date();
+    const dateStr = `${date.getFullYear()}年${date.getMonth() + 1}月${date.getDate()}日`;
+    const timeStr = `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')}`;
+    this.insertText(`${dateStr} ${timeStr}`);
+  }
+
   // 插入分隔线
   insertDivider() {
     this.insertText('\n────────────────\n');
@@ -170,9 +181,18 @@ struct NoteDetail {
     this.insertText('\n【标题】\n');
   }
 
+  // 插入列表项
+  insertListItem() {
+    this.insertText('\n• ');
+  }
+
+  // 插入数字列表
+  insertNumberedList() {
+    this.insertText('\n1. ');
+  }
+
   // 全选文本
   selectAll() {
-    // TextArea组件可能需要通过其他方式实现全选
     promptAction.showToast({
       message: '请长按文本区域进行全选',
       duration: 2000
@@ -211,15 +231,12 @@ struct NoteDetail {
       return;
     }
 
-    // 保存当前内容到历史笔记，以便退出页面后也能更新
-    if (this.noteIndex >= 0) {
-      const historyNotes = await storage.getHistoryNotes();
-      historyNotes[this.noteIndex] = this.editedContent;
-      await storage.saveHistoryNotes(historyNotes);
-    }
+    // 保存当前内容到存储，以便退出页面后也能更新
+    await storage.saveCurrentNote(this.editedContent);
 
     this.isAnalyzing = true;
     this.showLoading = true;
+    this.analyzedNote = '正在分析中...';
 
     const client = http.createHttp();
     try {
@@ -237,7 +254,7 @@ struct NoteDetail {
               {
                 role: 'system',
                 content:
-                  '你是「专业笔记整理助手 + 注册营养师」。\n' +
+                '你是「专业笔记整理助手 + 注册营养师」。\n' +
                   '1. 先识别用户输入的文本类型（会议/待办/学习/买菜/其他）。\n' +
                   '2. 按对应模板输出纯文本笔记，层级用【】或①②③，禁用Markdown。\n' +
                   '3. 若信息缺失，直接补建议并标注【待确认】。\n' +
@@ -271,15 +288,11 @@ struct NoteDetail {
         }
 
         const body: DeepSeekResponse = JSON.parse(resp.result.toString());
-        const analyzedContent = body.choices[0].message.content.trim();
-        this.editedContent = analyzedContent;
+        this.analyzedNote = body.choices[0].message.content.trim();
+        this.editedContent = this.analyzedNote;
         
-        // 无论是否还在页面，都保存分析结果到历史笔记
-        if (this.noteIndex >= 0) {
-          const historyNotes = await storage.getHistoryNotes();
-          historyNotes[this.noteIndex] = analyzedContent;
-          await storage.saveHistoryNotes(historyNotes);
-        }
+        // 无论是否还在页面，都保存分析结果到存储
+        await storage.saveCurrentNote(this.analyzedNote);
         
         promptAction.showToast({
           message: 'AI分析完成',
@@ -311,6 +324,7 @@ struct NoteDetail {
       Row() {
         Text('📝 编辑工具')
           .fontSize(14)
+          .fontWeight(FontWeight.Medium)
           .fontColor(this.getThemeColor('textColor'))
         Blank()
         Text(this.showToolbar ? '收起 ▲' : '展开 ▼')
@@ -321,7 +335,7 @@ struct NoteDetail {
           })
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 8, bottom: 8 })
+      .padding({ left: 20, right: 20, top: 12, bottom: 8 })
 
       // 工具栏按钮（可收起）
       if (this.showToolbar) {
@@ -335,6 +349,11 @@ struct NoteDetail {
             // 时间
             this.renderToolbarButton('🕐 时间', () => {
               this.insertTime();
+            })
+            
+            // 日期时间
+            this.renderToolbarButton('📆 日期时间', () => {
+              this.insertDateTime();
             })
             
             // 分隔线
@@ -352,9 +371,14 @@ struct NoteDetail {
               this.insertTitle();
             })
             
-            // 全选
-            this.renderToolbarButton('✓ 全选', () => {
-              this.selectAll();
+            // 列表
+            this.renderToolbarButton('• 列表', () => {
+              this.insertListItem();
+            })
+            
+            // 数字列表
+            this.renderToolbarButton('1. 数字', () => {
+              this.insertNumberedList();
             })
             
             // 清空
@@ -362,7 +386,7 @@ struct NoteDetail {
               this.clearContent();
             })
           }
-          .padding({ left: 20, right: 20, bottom: 8 })
+          .padding({ left: 20, right: 20, bottom: 12 })
         }
         .scrollable(ScrollDirection.Horizontal)
         .edgeEffect(EdgeEffect.Spring)
@@ -380,7 +404,7 @@ struct NoteDetail {
           .fontColor(this.getThemeColor('mutedTextColor'))
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 4, bottom: 8 })
+      .padding({ left: 20, right: 20, top: 4, bottom: 12 })
     }
     .width('100%')
     .backgroundColor(this.getThemeColor('cardColor'))
@@ -410,9 +434,9 @@ struct NoteDetail {
           .padding(4)
           .margin({ right: 12 })
           .onClick(() => {
-            router.back();
+            this.saveAndBack();
           })
-        Text('笔记详情')
+        Text('编辑笔记')
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
           .fontColor(this.getThemeColor('textColor'))
@@ -425,7 +449,7 @@ struct NoteDetail {
           .height(36)
           .padding({ left: 20, right: 20 })
           .onClick(() => {
-            this.saveNote();
+            this.saveCurrentNote();
           })
       }
       .width('100%')
@@ -440,7 +464,7 @@ struct NoteDetail {
 
       // 笔记内容编辑区
       Column() {
-        TextArea({ placeholder: '请输入笔记内容...', text: this.editedContent })
+        TextArea({ placeholder: '写下你的想法…', text: this.editedContent })
           .width('100%')
           .height('100%')
           .fontSize(16)
@@ -451,16 +475,18 @@ struct NoteDetail {
           .padding(20)
           .onChange((value: string) => {
             this.editedContent = value;
+            // 自动保存
+            storage.saveCurrentNote(value);
           })
       }
       .layoutWeight(1)
       .width('100%')
       .padding({ left: 20, right: 20, top: 16, bottom: 16 })
 
-      // 操作区域
+      // 操作按钮区域
       Column({ space: 12 }) {
         Row({ space: 12 }) {
-          Button('AI分析')
+          Button('保存到历史笔记')
             .layoutWeight(1)
             .height(44)
             .fontSize(16)
@@ -468,13 +494,24 @@ struct NoteDetail {
             .backgroundColor(this.getThemeColor('accentColor'))
             .borderRadius(22)
             .onClick(() => {
+              this.saveCurrentNote();
+            })
+
+          Button('AI分析')
+            .layoutWeight(1)
+            .height(44)
+            .fontSize(16)
+            .fontColor('#FFFFFF')
+          .backgroundColor(this.getThemeColor('accentColor'))
+            .borderRadius(22)
+            .onClick(() => {
               this.analyzeNoteWithAI();
             })
             .enabled(!this.isAnalyzing)
         }
         .width('100%')
-        .padding({ left: 20, right: 20 })
 
+        // AI分析加载动画
         if (this.showLoading) {
           Row() {
             LoadingProgress()
@@ -487,14 +524,17 @@ struct NoteDetail {
               .margin({ left: 8 })
           }
           .width('100%')
+          .margin({ top: 4 })
           .justifyContent(FlexAlign.Center)
-          .padding({ bottom: 8 })
         }
       }
-
+      .width('100%')
+      .padding({ left: 20, right: 20, top: 12, bottom: 16 })
+      .backgroundColor(this.getThemeColor('cardColor'))
     }
     .width('100%')
     .height('100%')
     .backgroundColor(this.getThemeColor('backgroundColor'))
   }
 }
+
