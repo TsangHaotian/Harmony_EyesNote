@@ -8,9 +8,11 @@ Harmony EyesNote（眨眼笔记）在原有快速记事的基础上，引入 AI 
 
 
 ## 项目截图
-<img width="600" height="1290" alt="Screenshot_2025-11-20T174335" src="https://github.com/user-attachments/assets/407cba6d-65ce-4594-97db-78a966324e02" /><img width="600" height="1290" alt="Screenshot_2025-11-20T174342" src="https://github.com/user-attachments/assets/9f2f6de0-f29d-469f-b776-cdb4043c8e2a" />
-<img width="600" height="1290" alt="Screenshot_2025-11-20T174427" src="https://github.com/user-attachments/assets/4cc40b0e-0e0f-4c8f-acf3-07dfd7136941" /><img width="600" height="1290" alt="Screenshot_2025-11-20T174358" src="https://github.com/user-attachments/assets/5c0b8630-aea1-4418-b474-ee2cee7a93eb" />
-<img width="600" height="1290" alt="Screenshot_2025-11-20T174349" src="https://github.com/user-attachments/assets/5626a02b-9e88-4e3b-981c-1edffaf51e99" />
+<img width="300" height="645" alt="Screenshot_2025-11-20T174335" src="https://github.com/user-attachments/assets/407cba6d-65ce-4594-97db-78a966324e02" />
+<img width="300" height="645" alt="Screenshot_2025-11-20T174342" src="https://github.com/user-attachments/assets/9f2f6de0-f29d-469f-b776-cdb4043c8e2a" />
+<img width="300" height="645" alt="Screenshot_2025-11-20T174427" src="https://github.com/user-attachments/assets/4cc40b0e-0e0f-4c8f-acf3-07dfd7136941" />
+<img width="300" height="645" alt="Screenshot_2025-11-20T174358" src="https://github.com/user-attachments/assets/5c0b8630-aea1-4418-b474-ee2cee7a93eb" />
+<img width="300" height="645" alt="Screenshot_2025-11-20T174349" src="https://github.com/user-attachments/assets/5626a02b-9e88-4e3b-981c-1edffaf51e99" />
 
 ## 功能亮点
 
