@@ -32,6 +32,8 @@ struct NoteDetail {
   @State editedContent: string = '';
   @State noteIndex: number = -1;
   @State showToolbar: boolean = true; // 工具栏显示状态
+  @State toolbarOpacity: number = 1; // 工具栏透明度
+  @State toolbarOffset: number = 0; // 工具栏垂直位移
   @State isAnalyzing: boolean = false; // AI分析状态
   @State showLoading: boolean = false; // 加载动画显示
   @State themePresets: ThemePreset[] = cloneThemePresets();
@@ -168,6 +170,32 @@ struct NoteDetail {
   // 插入标题格式
   insertTitle() {
     this.insertText('\n【标题】\n');
+  }
+
+  toggleToolbar() {
+    if (!this.showToolbar) {
+      this.showToolbar = true;
+      this.toolbarOpacity = 0;
+      this.toolbarOffset = -8;
+      animateTo({
+        duration: 280,
+        curve: 'easeInOut'
+      }, () => {
+        this.toolbarOpacity = 1;
+        this.toolbarOffset = 0;
+      });
+    } else {
+      animateTo({
+        duration: 240,
+        curve: 'easeInOut'
+      }, () => {
+        this.toolbarOpacity = 0;
+        this.toolbarOffset = -8;
+      });
+      setTimeout(() => {
+        this.showToolbar = false;
+      }, 210);
+    }
   }
 
   // 全选文本
@@ -317,14 +345,14 @@ struct NoteDetail {
           .fontSize(12)
           .fontColor(this.getThemeColor('accentColor'))
           .onClick(() => {
-            this.showToolbar = !this.showToolbar;
+            this.toggleToolbar();
           })
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 8, bottom: 8 })
 
       // 工具栏按钮（可收起）
-      if (this.showToolbar) {
+      if (this.showToolbar || this.toolbarOpacity > 0) {
         Scroll() {
           Row({ space: 12 }) {
             // 日期
@@ -365,8 +393,11 @@ struct NoteDetail {
           .padding({ left: 20, right: 20, bottom: 8 })
         }
         .scrollable(ScrollDirection.Horizontal)
+        .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
         .height(50)
+        .opacity(this.toolbarOpacity)
+        .translate({ y: this.toolbarOffset })
       }
 
       // 字数统计（始终显示）

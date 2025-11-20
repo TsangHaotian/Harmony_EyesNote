@@ -3,7 +3,6 @@ import { ThemePreset } from './Types';
 type ThemeColorKey = 'backgroundColor' | 'cardColor' | 'textColor' | 'accentColor' | 'mutedTextColor';
 
 const DEFAULT_THEME_ID: string = 'fresh';
-const CUSTOM_THEME_ID: string = 'custom';
 
 function cloneThemePreset(preset: ThemePreset): ThemePreset {
   const clonedPreset: ThemePreset = {
@@ -16,19 +15,6 @@ function cloneThemePreset(preset: ThemePreset): ThemePreset {
     mutedTextColor: preset.mutedTextColor
   };
   return clonedPreset;
-}
-
-function createDefaultCustomTheme(): ThemePreset {
-  const customTheme: ThemePreset = {
-    id: CUSTOM_THEME_ID,
-    name: '自定义主题',
-    backgroundColor: '#F8FAFC',
-    cardColor: '#FFFFFF',
-    textColor: '#0F172A',
-    accentColor: '#2563EB',
-    mutedTextColor: '#64748B'
-  };
-  return customTheme;
 }
 
 const THEME_PRESETS: ThemePreset[] = [
@@ -85,7 +71,8 @@ function cloneThemePresets(): ThemePreset[] {
 }
 
 function getThemeById(themeId?: string, presets?: ThemePreset[]): ThemePreset {
-  const availablePresets = presets && presets.length > 0 ? presets : THEME_PRESETS;
+  const hasCustomPresets: boolean = Array.isArray(presets) && presets.length > 0;
+  const availablePresets: ThemePreset[] = hasCustomPresets ? (presets as ThemePreset[]) : THEME_PRESETS;
   if (themeId) {
     const matched = availablePresets.find((theme: ThemePreset) => theme.id === themeId);
     if (matched) {
@@ -114,5 +101,5 @@ function getThemeColorValue(theme: ThemePreset, key: ThemeColorKey): string {
   }
 }
 
-export { DEFAULT_THEME_ID, CUSTOM_THEME_ID, THEME_PRESETS, FALLBACK_THEME, ThemeColorKey, cloneThemePreset, cloneThemePresets, createDefaultCustomTheme, getThemeById, getThemeColorValue };
+export { DEFAULT_THEME_ID, THEME_PRESETS, FALLBACK_THEME, ThemeColorKey, cloneThemePreset, cloneThemePresets, getThemeById, getThemeColorValue };
 

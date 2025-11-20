@@ -3,10 +3,11 @@ import router from '@ohos.router';
 import common from '@ohos.app.ability.common';
 import { storage } from '../utils/Storage';
 import http from '@ohos.net.http';
-import { HealthData, DailyHealthRecord, Template, ThemePreset } from '../utils/Types'; // 导入共享接口
+import { HealthData, DailyHealthRecord, Template, ThemePreset, Message } from '../utils/Types'; // 导入共享接口
 import promptAction from '@ohos.promptAction';
 import { HealthKitSync } from '../utils/HealthKitSync';
 import { DEFAULT_THEME_ID, ThemeColorKey, cloneThemePreset, cloneThemePresets, getThemeById, getThemeColorValue } from '../utils/Theme';
+// 使用内置的动画API
 
 interface RouterParams {
   content?: string;
@@ -14,11 +15,6 @@ interface RouterParams {
   healthData?: HealthData; // 使用共享接口
   currentNote?: string; // 当前笔记内容
   noteSaved?: boolean; // 笔记是否已保存到历史记录
-}
-
-interface Message {
-  role: string;
-  content: string;
 }
 
 // 删除重复的 HealthData 接口定义
@@ -57,6 +53,8 @@ struct Index {
   @State filteredNotes: string[] = []; // 过滤后的笔记列表
   @State searchKeyword: string = ''; // 搜索关键词
   @State showSearch: boolean = false; // 是否显示搜索框
+  @State searchBarOpacity: number = 0; // 搜索框透明度，用于出现动画
+  @State searchBarOffset: number = 8; // 搜索框垂直偏移
   @State defaultTemplates: Template[] = [
     {
       id: 'meeting',
@@ -115,6 +113,9 @@ struct Index {
   @State aiMessages: Message[] = [];
   @State aiInput: string = '';
   @State isAIChatting: boolean = false;
+  @State showChatHistory: boolean = false; // 显示历史对话列表
+  @State chatHistoryList: Message[][] = []; // 历史对话列表
+  @State sidebarOffset: number = 1; // 侧边栏偏移量，用于动画（1表示完全在屏幕外，0表示完全显示）
   // 主题相关状态
   @State themePresets: ThemePreset[] = cloneThemePresets();
   @State selectedThemeId: string = DEFAULT_THEME_ID;
@@ -206,6 +207,16 @@ struct Index {
     } catch (error) {
       console.error(`加载健康数据失败: ${error}`);
     }
+
+    // 新增：加载AI对话历史
+    try {
+      const savedAIChatHistory = await storage.getAIChatHistory();
+      if (savedAIChatHistory && savedAIChatHistory.length > 0) {
+        this.aiMessages = savedAIChatHistory;
+      }
+    } catch (error) {
+      console.error(`加载AI对话历史失败: ${error}`);
+    }
   }
 
   // 页面返回时处理数据
@@ -267,6 +278,18 @@ struct Index {
 
     // 新增：保存健康数据
     await this.saveHealthData();
+
+    // 新增：加载AI对话历史（如果切换到AI页面）
+    if (this.selectedIndex === 2) {
+      try {
+        const savedAIChatHistory = await storage.getAIChatHistory();
+        if (savedAIChatHistory && savedAIChatHistory.length > 0) {
+          this.aiMessages = savedAIChatHistory;
+        }
+      } catch (error) {
+        console.error(`加载AI对话历史失败: ${error}`);
+      }
+    }
   }
 
   // 打开笔记编辑器
@@ -464,38 +487,101 @@ struct Index {
   }
 
   // 健康页面方法
+  runHealthButtonAnimation(action: () => void) {
+    animateTo({
+      duration: 220,
+      curve: 'easeInOut'
+    }, () => {
+      action();
+    });
+  }
+
   incrementWater() {
-    this.waterCount += 1;
-    this.saveHealthData(); // 新增：保存健康数据
+    this.runHealthButtonAnimation(() => {
+      this.waterCount += 1;
+      this.saveHealthData();
+    });
   }
 
   decrementWater() {
-    if (this.waterCount > 0) {
-      this.waterCount -= 1;
-      this.saveHealthData(); // 新增：保存健康数据
+    if (this.waterCount === 0) {
+      return;
     }
+    this.runHealthButtonAnimation(() => {
+      this.waterCount -= 1;
+      this.saveHealthData();
+    });
   }
 
   incrementSteps() {
-    this.stepsCount += 100;
-    this.saveHealthData(); // 新增：保存健康数据
+    this.runHealthButtonAnimation(() => {
+      this.stepsCount += 100;
+      this.saveHealthData();
+    });
   }
 
   decrementSteps() {
-    if (this.stepsCount >= 100) {
-      this.stepsCount -= 100;
-      this.saveHealthData(); // 新增：保存健康数据
+    if (this.stepsCount < 100) {
+      return;
     }
+    this.runHealthButtonAnimation(() => {
+      this.stepsCount -= 100;
+      this.saveHealthData();
+    });
   }
 
   changeSleep(hours: number) {
-    this.sleepHours = Math.max(1, Math.min(12, this.sleepHours + hours));
-    this.saveHealthData(); // 新增：保存健康数据
+    const nextValue = Math.max(1, Math.min(12, this.sleepHours + hours));
+    if (nextValue === this.sleepHours) {
+      return;
+    }
+    this.runHealthButtonAnimation(() => {
+      this.sleepHours = nextValue;
+      this.saveHealthData();
+    });
   }
 
   changeMood(newMood: string) {
-    this.mood = newMood;
-    this.saveHealthData(); // 新增：保存健康数据
+    if (this.mood === newMood) {
+      return;
+    }
+    this.runHealthButtonAnimation(() => {
+      this.mood = newMood;
+      this.saveHealthData();
+    });
+  }
+
+  updateWaterGoal(delta: number) {
+    const nextValue = Math.max(1, this.waterGoal + delta);
+    if (nextValue === this.waterGoal) {
+      return;
+    }
+    this.runHealthButtonAnimation(() => {
+      this.waterGoal = nextValue;
+      this.saveHealthData();
+    });
+  }
+
+  updateSleepGoal(delta: number) {
+    const nextValue = Math.max(1, this.sleepGoal + delta);
+    if (nextValue === this.sleepGoal) {
+      return;
+    }
+    this.runHealthButtonAnimation(() => {
+      this.sleepGoal = nextValue;
+      this.saveHealthData();
+    });
+  }
+
+  updateStepsGoal(delta: number) {
+    const nextValue = Math.max(1000, this.stepsGoal + delta);
+    if (nextValue === this.stepsGoal) {
+      return;
+    }
+    this.runHealthButtonAnimation(() => {
+      this.stepsGoal = nextValue;
+      this.saveHealthData();
+    });
   }
 
   // 新增：同步华为运动健康数据
@@ -509,7 +595,9 @@ struct Index {
       return;
     }
 
-    this.isSyncing = true;
+    this.runHealthButtonAnimation(() => {
+      this.isSyncing = true;
+    });
     try {
       // 检查Health Kit是否可用
       const isAvailable = await HealthKitSync.isHealthKitAvailable(context);
@@ -601,6 +689,169 @@ struct Index {
     });
   }
 
+  // 新增：保存AI消息到历史笔记
+  async saveAIMessageToNotes(content: string, messageIndex: number) {
+    try {
+      // 将AI回复添加到历史笔记
+      this.historyNotes.unshift(content.trim());
+      this.filteredNotes = this.historyNotes;
+      
+      // 保存到存储
+      await storage.saveHistoryNotes(this.historyNotes);
+      
+      promptAction.showToast({
+        message: '已保存到历史笔记',
+        duration: 2000
+      });
+    } catch (error) {
+      console.error(`保存AI消息到笔记失败: ${error}`);
+      promptAction.showToast({
+        message: '保存失败，请稍后重试',
+        duration: 2000
+      });
+    }
+  }
+
+  // 新增：开始新对话
+  async startNewChat() {
+    promptAction.showDialog({
+      title: '开始新对话',
+      message: '确定开启新对话吗？',
+      buttons: [
+        { text: '取消', color: '#666666' },
+        { text: '确定', color: this.getThemeColor('accentColor') }
+      ]
+    }).then(async (result) => {
+      if (result.index === 1) {
+        // 保存当前对话到历史记录（如果有内容）
+        if (this.aiMessages.length > 0) {
+          await this.saveCurrentChatToHistory();
+        }
+        // 清空当前对话
+        this.aiMessages = [];
+        await storage.saveAIChatHistory([]);
+        promptAction.showToast({
+          message: '已开始新对话',
+          duration: 1500
+        });
+      }
+    }).catch((err: Error) => {
+      console.error(`新对话确认对话框错误: ${err}`);
+    });
+  }
+
+  // 新增：保存当前对话到历史记录
+  async saveCurrentChatToHistory() {
+    try {
+      const historyList = await storage.getAIChatHistoryList();
+      // 将当前对话添加到历史记录
+      historyList.unshift([...this.aiMessages]);
+      // 只保留最近50条历史对话
+      if (historyList.length > 50) {
+        historyList.splice(50);
+      }
+      await storage.saveAIChatHistoryList(historyList);
+    } catch (error) {
+      console.error(`保存当前对话到历史记录失败: ${error}`);
+    }
+  }
+
+  // 新增：加载历史对话列表
+  async loadChatHistoryList() {
+    try {
+      this.chatHistoryList = await storage.getAIChatHistoryList();
+    } catch (error) {
+      console.error(`加载历史对话列表失败: ${error}`);
+      this.chatHistoryList = [];
+    }
+  }
+
+  // 新增：加载指定历史对话
+  async loadChatHistory(index: number) {
+    if (index >= 0 && index < this.chatHistoryList.length) {
+      // 保存当前对话到历史记录（如果有内容且不在历史记录中）
+      if (this.aiMessages.length > 0) {
+        // 检查当前对话是否已经在历史记录中
+        const currentChatStr = JSON.stringify(this.aiMessages);
+        const isInHistory = this.chatHistoryList.some((chat: Message[]) => 
+          JSON.stringify(chat) === currentChatStr
+        );
+        if (!isInHistory) {
+          await this.saveCurrentChatToHistory();
+        }
+      }
+      // 加载选中的历史对话
+      this.aiMessages = [...this.chatHistoryList[index]];
+      await storage.saveAIChatHistory(this.aiMessages);
+      this.showChatHistory = false;
+      promptAction.showToast({
+        message: '已加载历史对话',
+        duration: 1500
+      });
+    }
+  }
+
+  // 新增：删除历史对话
+  async deleteChatHistory(index: number) {
+    promptAction.showDialog({
+      title: '删除历史对话',
+      message: '确定要删除这条历史对话吗？',
+      buttons: [
+        { text: '取消', color: '#666666' },
+        { text: '删除', color: '#FF3B30' }
+      ]
+    }).then(async (result) => {
+      if (result.index === 1) {
+        this.chatHistoryList.splice(index, 1);
+        await storage.saveAIChatHistoryList(this.chatHistoryList);
+        promptAction.showToast({
+          message: '已删除历史对话',
+          duration: 1500
+        });
+      }
+    }).catch((err: Error) => {
+      console.error(`删除历史对话确认对话框错误: ${err}`);
+    });
+  }
+
+  // 新增：获取对话预览文本
+  getChatPreview(chat: Message[]): string {
+    if (chat.length === 0) {
+      return '空对话';
+    }
+    // 返回第一条用户消息或AI消息的前30个字符
+    for (let i = 0; i < chat.length; i++) {
+      if (chat[i].content && chat[i].content.trim().length > 0) {
+        const preview = chat[i].content.trim();
+        return preview.length > 30 ? preview.substring(0, 30) + '...' : preview;
+      }
+    }
+    return '空对话';
+  }
+
+  // 新增：获取对话标题（用户发送的第一句话）
+  getChatTitle(chat: Message[]): string {
+    if (chat.length === 0) {
+      return '空对话';
+    }
+    // 查找第一条用户消息
+    for (let i = 0; i < chat.length; i++) {
+      if (chat[i].role === 'user' && chat[i].content && chat[i].content.trim().length > 0) {
+        const title = chat[i].content.trim();
+        // 如果标题太长，截取前40个字符
+        return title.length > 40 ? title.substring(0, 40) + '...' : title;
+      }
+    }
+    // 如果没有用户消息，返回第一条消息
+    for (let i = 0; i < chat.length; i++) {
+      if (chat[i].content && chat[i].content.trim().length > 0) {
+        const title = chat[i].content.trim();
+        return title.length > 40 ? title.substring(0, 40) + '...' : title;
+      }
+    }
+    return '空对话';
+  }
+
   // 新增：AI对话方法
   async sendAIMessage() {
     if (this.aiInput.trim().length === 0) {
@@ -613,6 +864,8 @@ struct Index {
       content: this.aiInput
     };
     this.aiMessages.push(userMessage);
+    // 保存对话历史
+    await storage.saveAIChatHistory(this.aiMessages);
     this.aiInput = '';
     this.isAIChatting = true;
 
@@ -707,7 +960,8 @@ struct Index {
                   + '5. 个体化：根据个人身体状况、活动量、年龄等因素调整饮食方案。\n'
                   + '当用户询问饮食问题时，请结合以上健康饮食知识和用户的历史笔记内容，提供科学、实用的建议。`;'
               } as Message,
-              ...this.aiMessages,
+              // 只发送最近20条消息作为上下文
+              ...this.aiMessages.slice(-20),
               {
                 role: 'system',
                 content: healthDataStr
@@ -729,12 +983,16 @@ struct Index {
           content: response.choices[0].message.content.trim()
         };
         this.aiMessages.push(aiResponse);
+        // 保存对话历史
+        await storage.saveAIChatHistory(this.aiMessages);
       } else {
         const errorMessage: Message = {
           role: 'assistant',
           content: `请求失败，错误码：${resp.responseCode}`
         };
         this.aiMessages.push(errorMessage);
+        // 保存对话历史
+        await storage.saveAIChatHistory(this.aiMessages);
       }
     } catch (error) {
       const errorMessage: Message = {
@@ -742,6 +1000,8 @@ struct Index {
         content: `发生错误：${JSON.stringify(error)}`
       };
       this.aiMessages.push(errorMessage);
+      // 保存对话历史
+      await storage.saveAIChatHistory(this.aiMessages);
     } finally {
       this.isAIChatting = false;
       client.destroy();
@@ -761,8 +1021,8 @@ NotePage() {
           .fontColor(this.getThemeColor('textColor'))
           Blank()
           Image($r("app.media.ic_setting"))
-            .width(28)
-            .height(28)
+            .width(42)
+            .height(42)
             .padding(4)
             .onClick(() => {
               router.pushUrl({ url: 'pages/Settings' });
@@ -878,6 +1138,7 @@ NotePage() {
           .padding({ left: 20, right: 20 })
         }
         .scrollable(ScrollDirection.Horizontal)
+      .scrollBar(BarState.Off)
         .edgeEffect(EdgeEffect.Spring)
       }
       .padding({ top: 20, bottom: 16 })
@@ -899,7 +1160,7 @@ NotePage() {
         .width('100%')
 
         Stack() {
-          TextInput({ placeholder: '点击进入编辑模式…', text: $$this.currentNote })
+          TextInput({ placeholder: '点击进入编辑模式…', text: this.currentNote })
             .width('100%')
             .height(120)
             .backgroundColor(this.getThemeColor('cardColor'))
@@ -939,10 +1200,30 @@ NotePage() {
             .fontSize(18)
             .fontColor(this.getThemeColor('textColor'))
             .onClick(() => {
-              this.showSearch = !this.showSearch;
               if (!this.showSearch) {
-                this.searchKeyword = '';
-                this.filterNotes();
+                this.showSearch = true;
+                this.searchBarOpacity = 0;
+                this.searchBarOffset = 8;
+                animateTo({
+                  duration: 280,
+                  curve: 'easeInOut'
+                }, () => {
+                  this.searchBarOpacity = 1;
+                  this.searchBarOffset = 0;
+                });
+              } else {
+                this.showSearch = false;
+                animateTo({
+                  duration: 300,
+                  curve: 'easeInOut'
+                }, () => {
+                  this.searchBarOpacity = 0;
+                  this.searchBarOffset = 8;
+                });
+                setTimeout(() => {
+                  this.searchKeyword = '';
+                  this.filterNotes();
+                }, 220);
               }
             })
         }
@@ -950,9 +1231,9 @@ NotePage() {
         .padding({ left: 20, right: 20, bottom: 12 })
 
         // 搜索框
-        if (this.showSearch) {
+        if (this.showSearch || this.searchBarOpacity > 0) {
           Row({ space: 8 }) {
-            TextInput({ placeholder: '搜索笔记...', text: $$this.searchKeyword })
+            TextInput({ placeholder: '搜索笔记...', text: this.searchKeyword })
               .layoutWeight(1)
               .height(40)
               .backgroundColor(this.getThemeColor('cardColor'))
@@ -975,6 +1256,8 @@ NotePage() {
           }
           .width('100%')
           .padding({ left: 20, right: 20, bottom: 12 })
+          .opacity(this.searchBarOpacity)
+          .translate({ y: this.searchBarOffset })
         }
 
         Column({ space: 12 }) {
@@ -1056,7 +1339,7 @@ NotePage() {
     }
     .width('100%')
     .height('100%')
-    .scrollBar(BarState.Auto)
+    .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring)
     .backgroundColor(this.getThemeColor('backgroundColor'))
   }
@@ -1342,10 +1625,7 @@ NotePage() {
                   .backgroundColor('#FF3B30')
                   .borderRadius(20)
                   .onClick(() => {
-                    if (this.waterGoal > 1) {
-                      this.waterGoal -= 1;
-                      this.saveHealthData();
-                    }
+                    this.updateWaterGoal(-1);
                   })
                 Button('+')
                   .layoutWeight(1)
@@ -1355,8 +1635,7 @@ NotePage() {
                   .backgroundColor('#34C759')
                   .borderRadius(20)
                   .onClick(() => {
-                    this.waterGoal += 1;
-                    this.saveHealthData();
+                    this.updateWaterGoal(1);
                   })
               }
               .width('100%')
@@ -1390,10 +1669,7 @@ NotePage() {
                   .backgroundColor('#FF3B30')
                   .borderRadius(20)
                   .onClick(() => {
-                    if (this.sleepGoal > 1) {
-                      this.sleepGoal -= 1;
-                      this.saveHealthData();
-                    }
+                    this.updateSleepGoal(-1);
                   })
                 Button('+')
                   .layoutWeight(1)
@@ -1403,8 +1679,7 @@ NotePage() {
                   .backgroundColor('#34C759')
                   .borderRadius(20)
                   .onClick(() => {
-                    this.sleepGoal += 1;
-                    this.saveHealthData();
+                    this.updateSleepGoal(1);
                   })
               }
               .width('100%')
@@ -1438,10 +1713,7 @@ NotePage() {
                   .backgroundColor('#FF3B30')
                   .borderRadius(20)
                   .onClick(() => {
-                    if (this.stepsGoal >= 1000) {
-                      this.stepsGoal -= 1000;
-                      this.saveHealthData();
-                    }
+                    this.updateStepsGoal(-1000);
                   })
                 Button('+1000')
                   .layoutWeight(1)
@@ -1451,8 +1723,7 @@ NotePage() {
                   .backgroundColor('#34C759')
                   .borderRadius(20)
                   .onClick(() => {
-                    this.stepsGoal += 1000;
-                    this.saveHealthData();
+                    this.updateStepsGoal(1000);
                   })
               }
               .width('100%')
@@ -1468,6 +1739,8 @@ NotePage() {
     }
     .width('100%')
     .height('100%')
+    .scrollBar(BarState.Off)
+    .edgeEffect(EdgeEffect.Spring)
     .backgroundColor(this.getThemeColor('backgroundColor'))
   }
 
@@ -1475,7 +1748,8 @@ NotePage() {
   @Builder
   AIPage() {
     Column() {
-      // 顶部标题
+      // 顶部标题栏
+      Row() {
       Column() {
         Text('健康Deepseek')
           .fontSize(24)
@@ -1485,16 +1759,66 @@ NotePage() {
           .fontSize(12)
           .fontColor(this.getThemeColor('mutedTextColor'))
           .margin({ top: 4 })
+        }
+        .alignItems(HorizontalAlign.Start)
+        .layoutWeight(1)
+        
+        // 右上角按钮组
+        Row({ space: 12 }) {
+          // 历史按钮(健康deepseek历史记录)
+          Image($r('app.media.ic_histo'))
+            .width(42)
+            .height(42)
+            .fillColor(this.getThemeColor('textColor'))
+            .padding(8)
+            .onClick(() => {
+              if (!this.showChatHistory) {
+                this.showChatHistory = true;
+                this.sidebarOffset = 1; // 初始状态：完全在屏幕外
+                this.loadChatHistoryList();
+                // 触发滑入动画
+                animateTo({
+                  duration: 300,
+                  curve: 'easeOut'
+                }, () => {
+                  this.sidebarOffset = 0; // 动画到完全显示
+                });
+              } else {
+                // 触发滑出动画
+                animateTo({
+                  duration: 300,
+                  curve: 'easeIn'
+                }, () => {
+                  this.sidebarOffset = 1; // 动画到完全隐藏
+                });
+                // 动画完成后关闭侧边栏
+                setTimeout(() => {
+                  this.showChatHistory = false;
+                }, 300);
+              }
+            })
+          
+          // 新对话按钮（健康deepseek新对话）
+          Image($r('app.media.ic_newtchat'))
+            .width(42)
+            .height(42)
+            .fillColor(this.getThemeColor('textColor'))
+            .padding(8)
+            .onClick(() => {
+              this.startNewChat();
+            })
+        }
+        .alignItems(VerticalAlign.Center)
       }
       .width('100%')
       .height(66)
       .padding({ left: 20, right: 20, top: 12, bottom: 12 })
-      .justifyContent(FlexAlign.Start)
-      .alignItems(HorizontalAlign.Start)
       .backgroundColor(this.getThemeColor('backgroundColor'))
 
       Divider().strokeWidth(0.5).color('#E5E5EA')
 
+      // 主内容区域（使用Stack实现侧边栏效果）
+      Stack() {
       // 聊天记录
       Scroll() {
         Column() {
@@ -1539,7 +1863,7 @@ NotePage() {
                   .height(40)
                   .borderRadius(20)
                   .margin({ right: 12 })
-                Column() {
+                Column({ space: 6 }) {
                   Text(message.content)
                     .fontSize(15)
                     .fontColor(this.getThemeColor('textColor'))
@@ -1564,7 +1888,25 @@ NotePage() {
                       offsetX: 0,
                       offsetY: 2
                     })
+                  
+                  // 保存按钮 - 左对齐，不超出消息气泡宽度
+                  Row() {
+                    Button('💾保存到笔记')
+                      .fontSize(11)
+                      .fontColor('#FFFFFF')
+                      .backgroundColor(this.getThemeColor('accentColor'))
+                      .borderRadius(10)
+                      .height(26)
+                      .padding({ left: 10, right: 10 })
+                      .onClick(async () => {
+                        await this.saveAIMessageToNotes(message.content, index);
+                      })
+                    Blank()
+                  }
+                  .width('100%')
+                  .constraintSize({ maxWidth: '75%' })
                 }
+                .alignItems(HorizontalAlign.Start)
 
                 Blank()
               }
@@ -1635,13 +1977,186 @@ NotePage() {
         .padding({ top: 12, bottom: 12 })
       }
       .layoutWeight(1)
-      .scrollBar(BarState.Auto)
+      .scrollBar(BarState.Off)
+      .edgeEffect(EdgeEffect.Spring)
+
+        // 历史对话侧边栏
+        if (this.showChatHistory) {
+          // 半透明遮罩层
+          Row()
+            .width('100%')
+            .height('100%')
+            .backgroundColor('#00000040')
+            .opacity(1 - this.sidebarOffset * 0.6)
+            .onClick(() => {
+              // 触发滑出动画
+              animateTo({
+                duration: 300,
+                curve: 'easeIn'
+              }, () => {
+                this.sidebarOffset = 1; // 动画到完全隐藏
+              });
+              // 动画完成后关闭侧边栏
+              setTimeout(() => {
+                this.showChatHistory = false;
+              }, 300);
+            })
+
+          // 侧边栏内容 - 使用Row包裹，从右侧对齐
+          Row() {
+            Blank()
+            Column() {
+              // 侧边栏头部
+              Row() {
+                Text('历史对话')
+                  .fontSize(18)
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(this.getThemeColor('textColor'))
+                Blank()
+                Image($r('app.media.ic_close'))
+                  .width(42)
+                  .height(42)
+                  .fillColor(this.getThemeColor('textColor'))
+                  .padding(8)
+            .onClick(() => {
+              // 触发滑出动画
+              animateTo({
+                duration: 300,
+                curve: 'easeIn'
+              }, () => {
+                this.sidebarOffset = 1; // 动画到完全隐藏
+              });
+              // 动画完成后关闭侧边栏
+              setTimeout(() => {
+                this.showChatHistory = false;
+              }, 300);
+            })
+              }
+              .width('100%')
+              .padding({ left: 20, right: 20, top: 16, bottom: 16 })
+              .backgroundColor(this.getThemeColor('cardColor'))
+              .borderRadius({
+                topLeft: 16,
+                topRight: 0,
+                bottomLeft: 0,
+                bottomRight: 0
+              })
+              .border({ width: { bottom: 0.5 }, color: '#E5E5EA' })
+
+              // 历史对话列表
+              if (this.chatHistoryList.length === 0) {
+                Column() {
+                  Text('暂无历史对话')
+                    .fontSize(14)
+                    .fontColor(this.getThemeColor('mutedTextColor'))
+                    .margin({ top: 100 })
+                }
+                .width('100%')
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Center)
+              } else {
+                Scroll() {
+                  Column({ space: 0 }) {
+                    ForEach(this.chatHistoryList, (chat: Message[], index: number) => {
+                      Column() {
+                        Row() {
+                          Column({ space: 4 }) {
+                            Text(this.getChatTitle(chat))
+                              .fontSize(15)
+                              .fontColor(this.getThemeColor('textColor'))
+                              .fontWeight(FontWeight.Medium)
+                              .maxLines(2)
+                              .textOverflow({ overflow: TextOverflow.Ellipsis })
+                            Text(`${chat.length} 条消息`)
+                              .fontSize(12)
+                              .fontColor(this.getThemeColor('mutedTextColor'))
+                              .margin({ top: 4 })
+                          }
+                          .layoutWeight(1)
+                          .alignItems(HorizontalAlign.Start)
+
+                          Row({ space: 12 }) {
+                            Image($r('app.media.ic_edit'))
+                              .width(22)
+                              .height(22)
+                              .fillColor(this.getThemeColor('accentColor'))
+                              .onClick(() => {
+                                this.loadChatHistory(index);
+                              })
+                            Image($r('app.media.ic_delete'))
+                              .width(22)
+                              .height(22)
+                              .fillColor('#FF3B30')
+                              .onClick(() => {
+                                this.deleteChatHistory(index);
+                              })
+                          }
+                          .alignItems(VerticalAlign.Center)
+                        }
+                        .width('100%')
+                        .padding({ left: 20, right: 20, top: 16, bottom: 16 })
+                        .onClick(() => {
+                          this.loadChatHistory(index);
+                        })
+                        
+                        // 分隔符（最后一条不显示）
+                        if (index < this.chatHistoryList.length - 1) {
+                          Divider()
+                            .strokeWidth(0.5)
+                            .color('#E5E5EA')
+                            .margin({ left: 20, right: 20 })
+                        }
+                      }
+                      .width('100%')
+                      .backgroundColor(this.getThemeColor('cardColor'))
+                      .borderRadius(12)
+                      .margin({ left: 12, right: 12, top: 4, bottom: 4 })
+                    }, (chat: Message[], index: number) => `chat_${index}`)
+                  }
+                  .width('100%')
+                  .padding({ top: 12, bottom: 12 })
+                }
+                .layoutWeight(1)
+                .scrollBar(BarState.Off)
+                .edgeEffect(EdgeEffect.Spring)
+              }
+            }
+            .width('75%')
+            .height('100%')
+            .backgroundColor(this.getThemeColor('cardColor'))
+            .borderRadius({
+              topLeft: 16,
+              topRight: 0,
+              bottomLeft: 16,
+              bottomRight: 0
+            })
+            .border({
+              width: 1,
+              color: '#00000020'
+            })
+            .shadow({
+              radius: 16,
+              color: '#00000020',
+              offsetX: -4,
+              offsetY: 0
+            })
+            .translate({
+              x: `${this.sidebarOffset * 100}%`
+            })
+            .opacity(1 - this.sidebarOffset)
+          }
+          .width('100%')
+          .height('100%')
+          .justifyContent(FlexAlign.End)
+        }
+      }
+      .layoutWeight(1)
 
       // 输入区域
       Row({ space: 12 }) {
         TextInput({
           placeholder: '输入你的问题...',
-          text: $$this.aiInput
+          text: this.aiInput
         })
           .layoutWeight(1)
           .height(50)
@@ -1651,6 +2166,9 @@ NotePage() {
           .fontSize(15)
           .fontColor(this.getThemeColor('textColor'))
           .placeholderColor('#999999')
+          .onChange((value: string) => {
+            this.aiInput = value;
+          })
 
         Button('发送')
           .width(70)
@@ -1677,13 +2195,27 @@ NotePage() {
     Column() {
       // 主内容区域
       Stack() {
-        if (this.selectedIndex === 0) {
+        // 使用平移配合 animateTo 实现页面切换动画
+        Column() {
           this.NotePage()
-        } else if (this.selectedIndex === 1) {
+        }
+        .width('100%')
+        .height('100%')
+        .translate({ x: `${(0 - this.selectedIndex) * 100}%` })
+
+        Column() {
           this.HealthPage()
-        } else {
+        }
+        .width('100%')
+        .height('100%')
+        .translate({ x: `${(1 - this.selectedIndex) * 100}%` })
+
+        Column() {
           this.AIPage()
         }
+        .width('100%')
+        .height('100%')
+        .translate({ x: `${(2 - this.selectedIndex) * 100}%` })
       }
       .layoutWeight(1)
 
@@ -1702,7 +2234,14 @@ NotePage() {
         }
         .layoutWeight(1)
         .onClick(() => {
-          this.selectedIndex = 0;
+          if (this.selectedIndex !== 0) {
+            animateTo({
+              duration: 250,
+              curve: 'easeInOut'
+            }, () => {
+              this.selectedIndex = 0;
+            });
+          }
         })
         .alignItems(HorizontalAlign.Center)
         .padding({ top: 8, bottom: 8 })
@@ -1720,7 +2259,14 @@ NotePage() {
         }
         .layoutWeight(1)
         .onClick(() => {
-          this.selectedIndex = 1;
+          if (this.selectedIndex !== 1) {
+            animateTo({
+              duration: 250,
+              curve: 'easeInOut'
+            }, () => {
+              this.selectedIndex = 1;
+            });
+          }
         })
         .alignItems(HorizontalAlign.Center)
         .padding({ top: 8, bottom: 8 })
@@ -1738,7 +2284,14 @@ NotePage() {
         }
         .layoutWeight(1)
         .onClick(() => {
-          this.selectedIndex = 2;
+          if (this.selectedIndex !== 2) {
+            animateTo({
+              duration: 250,
+              curve: 'easeInOut'
+            }, () => {
+              this.selectedIndex = 2;
+            });
+          }
         })
         .alignItems(HorizontalAlign.Center)
         .padding({ top: 8, bottom: 8 })

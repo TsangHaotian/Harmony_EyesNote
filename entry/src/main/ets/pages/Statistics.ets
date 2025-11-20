@@ -462,6 +462,8 @@ struct Statistics {
           .padding({ top: 24, left: 20, right: 20, bottom: 24 })
         }
         .layoutWeight(1)
+        .scrollBar(BarState.Auto)
+        .edgeEffect(EdgeEffect.Spring)
       }
     }
     .width('100%')

@@ -1,6 +1,6 @@
 import preferences from '@ohos.data.preferences';
 import common from '@ohos.app.ability.common';
-import { HealthData, DailyHealthRecord, StatisticsData, NoteItem, HealthScore, HealthAnalysis, Template, ThemePreset } from './Types'; // 导入共享接口
+import { HealthData, DailyHealthRecord, StatisticsData, NoteItem, HealthScore, HealthAnalysis, Template, ThemePreset, Message } from './Types'; // 导入共享接口
 import { HealthCalculator } from './HealthCalculator';
 
 class StorageManager {
@@ -188,12 +188,13 @@ class StorageManager {
   /**
    * 保存自定义主题
    */
-  public async saveCustomThemePreset(theme: ThemePreset): Promise<void> {
+  public async saveCustomThemePreset(theme: ThemePreset | null): Promise<void> {
     if (!this.pref) {
       throw new Error('首选项未初始化');
     }
     try {
-      await this.pref.put('customThemePreset', JSON.stringify(theme));
+      const value: string = theme ? JSON.stringify(theme) : '';
+      await this.pref.put('customThemePreset', value);
       await this.pref.flush();
     } catch (error) {
       console.error(`自定义主题保存失败: ${error}`);
@@ -202,18 +203,18 @@ class StorageManager {
   }
 
   /**
-   * 读取自定义主题
+   * 获取自定义主题
    */
   public async getCustomThemePreset(): Promise<ThemePreset | null> {
     if (!this.pref) {
       throw new Error('首选项未初始化');
     }
     try {
-      const storedTheme = await this.pref.get('customThemePreset', '');
-      if (!storedTheme || (storedTheme as string).length === 0) {
+      const themeStr = await this.pref.get('customThemePreset', '');
+      if (!themeStr || themeStr === '') {
         return null;
       }
-      return JSON.parse(storedTheme as string) as ThemePreset;
+      return JSON.parse(themeStr as string) as ThemePreset;
     } catch (error) {
       console.error(`自定义主题获取失败: ${error}`);
       return null;
@@ -600,6 +601,76 @@ class StorageManager {
     const healthData = await this.getHealthData();
     const records = await this.getDailyHealthRecords();
     return HealthCalculator.calculateHealthAnalysis(healthData, records);
+  }
+
+  /**
+   * 保存AI对话历史
+   * @param messages AI对话消息数组
+   */
+  public async saveAIChatHistory(messages: Message[]): Promise<void> {
+    if (!this.pref) {
+      throw new Error('首选项未初始化');
+    }
+    try {
+      await this.pref.put('aiChatHistory', JSON.stringify(messages));
+      await this.pref.flush();
+      console.log('AI对话历史保存成功');
+    } catch (error) {
+      console.error(`AI对话历史保存失败: ${error}`);
+      throw new Error(error);
+    }
+  }
+
+  /**
+   * 获取AI对话历史
+   * @returns AI对话消息数组
+   */
+  public async getAIChatHistory(): Promise<Message[]> {
+    if (!this.pref) {
+      throw new Error('首选项未初始化');
+    }
+    try {
+      const messagesStr = await this.pref.get('aiChatHistory', '[]');
+      return JSON.parse(messagesStr as string) as Message[];
+    } catch (error) {
+      console.error(`AI对话历史获取失败: ${error}`);
+      return [];
+    }
+  }
+
+  /**
+   * 保存AI对话历史列表（多条历史对话）
+   * @param historyList 历史对话列表
+   */
+  public async saveAIChatHistoryList(historyList: Message[][]): Promise<void> {
+    if (!this.pref) {
+      throw new Error('首选项未初始化');
+    }
+    try {
+      await this.pref.put('aiChatHistoryList', JSON.stringify(historyList));
+      await this.pref.flush();
+      console.log('AI对话历史列表保存成功');
+    } catch (error) {
+      console.error(`AI对话历史列表保存失败: ${error}`);
+      throw new Error(error);
+    }
+  }
+
+  /**
+   * 获取AI对话历史列表（多条历史对话）
+   * @returns AI对话历史列表
+   */
+  public async getAIChatHistoryList(): Promise<Message[][]> {
+    if (!this.pref) {
+      throw new Error('首选项未初始化');
+    }
+    try {
+      const historyListStr = await this.pref.get('aiChatHistoryList', '[]');
+      return JSON.parse(historyListStr as string) as Message[][];
+    } catch (error) {
+      console.error(`AI对话历史列表获取失败: ${error}`);
+      return [];
+    }
   }
 
   /**

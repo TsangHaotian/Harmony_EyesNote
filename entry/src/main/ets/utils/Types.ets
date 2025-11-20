@@ -116,4 +116,10 @@ interface ThemePreset {
   mutedTextColor: string; // 次级文本颜色
 }
 
-export { HealthData, DailyHealthRecord, NoteItem, StatisticsData, HealthScore, WeekComparison, HealthAnalysis, Achievement, HealthLevel, HealthReport, Template, ThemePreset };
+// AI对话消息接口
+interface Message {
+  role: string; // 'user' | 'assistant' | 'system'
+  content: string; // 消息内容
+}
+
+export { HealthData, DailyHealthRecord, NoteItem, StatisticsData, HealthScore, WeekComparison, HealthAnalysis, Achievement, HealthLevel, HealthReport, Template, ThemePreset, Message };
