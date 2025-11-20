@@ -60,10 +60,7 @@ entry/
 
 ## 运行环境
 
-- HarmonyOS NEXT / DevEco Studio 4.1+（Beta5 或更新）
-- Node.js ≥ 16（hvigor CLI 依赖）
-- ohpm（随 DevEco Studio 安装）
-- 可选：华为开发者帐号以调试 Health Kit / 备份能力
+- HarmonyOS NEXT / DevEco Studio 5.0+
 
 ## 快速上手
 
@@ -71,26 +68,7 @@ entry/
 # 1. 克隆代码
 git clone https://github.com/TsangHaotian/Harmony_EyesNote.git
 cd Harmony_EyesNote
-
-# 2. 安装依赖
-ohpm install
-
-# 3. DevEco Studio 中选择 entry 模块运行，或使用 hvigor CLI
-hvigorw assembleDebug         # 构建
-hvigorw test                  # 运行示例测试
 ```
-
-> **提示**：首次真机调试请在 DevEco Studio 中勾选“启用 HarmonyOS NEXT 编译链”，并在 `local.properties` 中配置 SDK 路径。
-
-## AI 配置（必选）
-
-默认 Demo 使用硬编码的 DeepSeek Key，仅供本地验证。正式集成请：
-
-1. 在 `entry/src/main/ets/pages/NoteEditor.ets` 中搜索 `Authorization` 字段。
-2. 将示例 `sk-xxxx` 替换为自己的 **DeepSeek Chat API Key**，或改为从 `AppScope/app.json5` / 云端密钥服务读取。
-3. 如需切换模型或增加提示词，可直接修改 `messages` 和 `model` 字段。
-
-> 建议后续封装独立配置文件，并在 `Storage.ets` 中加密保存，以便多环境切换。
 
 ## 数据与备份策略
 
@@ -122,5 +100,3 @@ hvigorw test                  # 运行示例测试
 - 开发者：TsangHaotian
 - 邮箱：TsangHaotian@hotmail.com
 - GitHub：<https://github.com/TsangHaotian/Harmony_EyesNote>
-
-欢迎 Issue / PR，一起完善 HarmonyOS NEXT 上的效率工具生态。
