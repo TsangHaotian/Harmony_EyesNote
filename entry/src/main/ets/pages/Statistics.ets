@@ -1,8 +1,10 @@
 import router from '@ohos.router';
+import common from '@ohos.app.ability.common';
 import { storage } from '../utils/Storage';
-import { StatisticsData, DailyHealthRecord, HealthScore, HealthAnalysis } from '../utils/Types';
+import { StatisticsData, DailyHealthRecord, HealthScore, HealthAnalysis, ThemePreset } from '../utils/Types';
 import { HealthCalculator } from '../utils/HealthCalculator';
 import promptAction from '@ohos.promptAction';
+import { DEFAULT_THEME_ID, ThemeColorKey, cloneThemePreset, cloneThemePresets, getThemeById, getThemeColorValue } from '../utils/Theme';
 
 @Entry
 @Component
@@ -20,8 +22,36 @@ struct Statistics {
   @State isLoading: boolean = true;
   @State healthScore: HealthScore | null = null;
   @State healthAnalysis: HealthAnalysis | null = null;
+  @State themePresets: ThemePreset[] = cloneThemePresets();
+  @State selectedThemeId: string = DEFAULT_THEME_ID;
+
+  getCurrentTheme(): ThemePreset {
+    return getThemeById(this.selectedThemeId, this.themePresets);
+  }
+
+  getThemeColor(key: ThemeColorKey): string {
+    return getThemeColorValue(this.getCurrentTheme(), key);
+  }
+
+  async refreshTheme() {
+    const presets = cloneThemePresets();
+    const customTheme = await storage.getCustomThemePreset();
+    if (customTheme) {
+      presets.push(cloneThemePreset(customTheme));
+    }
+    this.themePresets = presets;
+    const savedThemeId = await storage.getThemePreference();
+    if (savedThemeId && this.themePresets.some((theme: ThemePreset) => theme.id === savedThemeId)) {
+      this.selectedThemeId = savedThemeId;
+    } else {
+      this.selectedThemeId = DEFAULT_THEME_ID;
+    }
+  }
 
   async aboutToAppear() {
+    const context = getContext(this) as common.UIAbilityContext;
+    await storage.init(context);
+    await this.refreshTheme();
     await this.loadData();
   }
 
@@ -70,7 +100,7 @@ struct Statistics {
     Row() {
       Text(label)
         .fontSize(14)
-        .fontColor($r("app.color.TextColor"))
+        .fontColor(this.getThemeColor('textColor'))
       Blank()
       Row({ space: 8 }) {
         Text(`${score}`)
@@ -79,7 +109,7 @@ struct Statistics {
           .fontWeight(FontWeight.Medium)
         Text('/25')
           .fontSize(12)
-          .fontColor('#666666')
+          .fontColor(this.getThemeColor('mutedTextColor'))
       }
     }
     .width('100%')
@@ -99,7 +129,7 @@ struct Statistics {
         .fontWeight(FontWeight.Medium)
       Text(this.getHealthLevelDescription(totalScore))
         .fontSize(12)
-        .fontColor('#666666')
+        .fontColor(this.getThemeColor('mutedTextColor'))
         .margin({ top: 4 })
     }
     .width('100%')
@@ -137,13 +167,13 @@ struct Statistics {
         Text('数据统计')
           .fontSize(20)
           .fontWeight(FontWeight.Bold)
-          .fontColor($r("app.color.TextColor"))
+          .fontColor(this.getThemeColor('textColor'))
         Blank()
       }
       .width('100%')
       .height(56)
       .padding({ left: 20, right: 20, top: 8, bottom: 8 })
-      .backgroundColor($r("app.color.backgroundColor"))
+      .backgroundColor(this.getThemeColor('backgroundColor'))
 
       Divider().strokeWidth(0.5).color('#E5E5EA')
 
@@ -155,7 +185,7 @@ struct Statistics {
             .margin({ top: 100 })
           Text('加载中...')
             .fontSize(14)
-            .fontColor('#666666')
+            .fontColor(this.getThemeColor('mutedTextColor'))
             .margin({ top: 16 })
         }
         .width('100%')
@@ -164,12 +194,12 @@ struct Statistics {
         Scroll() {
           Column({ space: 20 }) {
             // 笔记统计
-            Card() {
+            Card({ cardColor: this.getThemeColor('cardColor') }) {
               Column({ space: 12 }) {
                 Text('📝 笔记统计')
                   .fontSize(18)
                   .fontWeight(FontWeight.Medium)
-                  .fontColor($r("app.color.TextColor"))
+                  .fontColor(this.getThemeColor('textColor'))
                 
                 Row() {
                   Column({ space: 4 }) {
@@ -179,7 +209,7 @@ struct Statistics {
                       .fontColor('#007AFF')
                     Text('总笔记数')
                       .fontSize(14)
-                      .fontColor('#666666')
+                      .fontColor(this.getThemeColor('mutedTextColor'))
                   }
                   .layoutWeight(1)
                   
@@ -190,7 +220,7 @@ struct Statistics {
                       .fontColor('#34C759')
                     Text('总字数')
                       .fontSize(14)
-                      .fontColor('#666666')
+                      .fontColor(this.getThemeColor('mutedTextColor'))
                   }
                   .layoutWeight(1)
                 }
@@ -202,12 +232,12 @@ struct Statistics {
             }
 
             // 健康统计
-            Card() {
+            Card({ cardColor: this.getThemeColor('cardColor') }) {
               Column({ space: 12 }) {
                 Text('💪 健康统计')
                   .fontSize(18)
                   .fontWeight(FontWeight.Medium)
-                  .fontColor($r("app.color.TextColor"))
+                  .fontColor(this.getThemeColor('textColor'))
                 
                 Row() {
                   Column({ space: 4 }) {
@@ -217,7 +247,7 @@ struct Statistics {
                       .fontColor('#007AFF')
                     Text('平均饮水量/天')
                       .fontSize(12)
-                      .fontColor('#666666')
+                      .fontColor(this.getThemeColor('mutedTextColor'))
                   }
                   .layoutWeight(1)
                   
@@ -228,7 +258,7 @@ struct Statistics {
                       .fontColor('#34C759')
                     Text('平均睡眠/小时')
                       .fontSize(12)
-                      .fontColor('#666666')
+                      .fontColor(this.getThemeColor('mutedTextColor'))
                   }
                   .layoutWeight(1)
                   
@@ -239,7 +269,7 @@ struct Statistics {
                       .fontColor('#FF9500')
                     Text('平均步数')
                       .fontSize(12)
-                      .fontColor('#666666')
+                      .fontColor(this.getThemeColor('mutedTextColor'))
                   }
                   .layoutWeight(1)
                 }
@@ -254,11 +284,11 @@ struct Statistics {
                 Row() {
                   Text('记录天数')
                     .fontSize(14)
-                    .fontColor('#666666')
+                    .fontColor(this.getThemeColor('mutedTextColor'))
                   Blank()
                   Text(`${this.statisticsData.healthRecordsCount} 天`)
                     .fontSize(16)
-                    .fontColor($r("app.color.TextColor"))
+                    .fontColor(this.getThemeColor('textColor'))
                     .fontWeight(FontWeight.Medium)
                 }
                 .width('100%')
@@ -266,7 +296,7 @@ struct Statistics {
                 Row() {
                   Text('最常见心情')
                     .fontSize(14)
-                    .fontColor('#666666')
+                    .fontColor(this.getThemeColor('mutedTextColor'))
                   Blank()
                   Text(this.statisticsData.mostCommonMood)
                     .fontSize(16)
@@ -282,12 +312,12 @@ struct Statistics {
 
             // 健康评分
             if (this.healthScore) {
-              Card() {
+              Card({ cardColor: this.getThemeColor('cardColor') }) {
                 Column({ space: 12 }) {
                   Text('⭐ 今日健康评分')
                     .fontSize(18)
                     .fontWeight(FontWeight.Medium)
-                    .fontColor($r("app.color.TextColor"))
+                    .fontColor(this.getThemeColor('textColor'))
                   
                   // 总分显示
                   this.renderHealthScore(this.healthScore.totalScore)
@@ -317,13 +347,13 @@ struct Statistics {
                       Text('💡 改进建议')
                         .fontSize(14)
                         .fontWeight(FontWeight.Medium)
-                        .fontColor($r("app.color.TextColor"))
+                        .fontColor(this.getThemeColor('textColor'))
                         .width('100%')
                       
                       ForEach(this.healthScore.suggestions, (suggestion: string, index: number) => {
                         Text(`• ${suggestion}`)
                           .fontSize(13)
-                          .fontColor('#666666')
+                          .fontColor(this.getThemeColor('mutedTextColor'))
                           .width('100%')
                           .lineHeight(20)
                       }, (suggestion: string, index: number) => `${index}`)
@@ -339,23 +369,23 @@ struct Statistics {
 
             // 健康分析
             if (this.healthAnalysis) {
-              Card() {
+              Card({ cardColor: this.getThemeColor('cardColor') }) {
                 Column({ space: 12 }) {
                   Text('📊 健康分析')
                     .fontSize(18)
                     .fontWeight(FontWeight.Medium)
-                    .fontColor($r("app.color.TextColor"))
+                    .fontColor(this.getThemeColor('textColor'))
                   
                   // 趋势
                   Row() {
                     Text('趋势')
                       .fontSize(14)
-                      .fontColor('#666666')
+                      .fontColor(this.getThemeColor('mutedTextColor'))
                     Blank()
                     Text(this.healthAnalysis.trend)
                       .fontSize(14)
                       .fontColor(this.healthAnalysis.trend === '上升' ? '#34C759' : 
-                                this.healthAnalysis.trend === '下降' ? '#FF3B30' : '#666666')
+                                this.healthAnalysis.trend === '下降' ? '#FF3B30' : this.getThemeColor('mutedTextColor'))
                       .fontWeight(FontWeight.Medium)
                   }
                   .width('100%')
@@ -366,14 +396,14 @@ struct Statistics {
                       Text('📈 数据洞察')
                         .fontSize(14)
                         .fontWeight(FontWeight.Medium)
-                        .fontColor($r("app.color.TextColor"))
+                        .fontColor(this.getThemeColor('textColor'))
                         .width('100%')
                         .margin({ top: 8 })
                       
                       ForEach(this.healthAnalysis.insights, (insight: string, index: number) => {
                         Text(`• ${insight}`)
                           .fontSize(13)
-                          .fontColor('#666666')
+                          .fontColor(this.getThemeColor('mutedTextColor'))
                           .width('100%')
                           .lineHeight(20)
                       }, (insight: string, index: number) => `${index}`)
@@ -388,14 +418,14 @@ struct Statistics {
                       Text('💡 个性化推荐')
                         .fontSize(14)
                         .fontWeight(FontWeight.Medium)
-                        .fontColor($r("app.color.TextColor"))
+                        .fontColor(this.getThemeColor('textColor'))
                         .width('100%')
                         .margin({ top: 8 })
                       
                       ForEach(this.healthAnalysis.recommendations, (rec: string, index: number) => {
                         Text(`• ${rec}`)
                           .fontSize(13)
-                          .fontColor('#666666')
+                          .fontColor(this.getThemeColor('mutedTextColor'))
                           .width('100%')
                           .lineHeight(20)
                       }, (rec: string, index: number) => `${index}`)
@@ -411,12 +441,12 @@ struct Statistics {
 
             // 最近记录
             if (this.recentRecords.length > 0) {
-              Card() {
+              Card({ cardColor: this.getThemeColor('cardColor') }) {
                 Column({ space: 12 }) {
                   Text('📅 最近7天记录')
                     .fontSize(18)
                     .fontWeight(FontWeight.Medium)
-                    .fontColor($r("app.color.TextColor"))
+                    .fontColor(this.getThemeColor('textColor'))
                   
                   Column({ space: 8 }) {
                     ForEach(this.recentRecords, (record: DailyHealthRecord) => {
@@ -424,11 +454,11 @@ struct Statistics {
                         Column({ space: 4 }) {
                           Text(record.date)
                             .fontSize(14)
-                            .fontColor($r("app.color.TextColor"))
+                            .fontColor(this.getThemeColor('textColor'))
                             .fontWeight(FontWeight.Medium)
                           Text(`💧${record.waterCount}杯  😴${record.sleepHours}h  🚶${record.stepsCount}步`)
                             .fontSize(12)
-                            .fontColor('#666666')
+                            .fontColor(this.getThemeColor('mutedTextColor'))
                         }
                         .layoutWeight(1)
                         Text(record.mood)
@@ -451,7 +481,7 @@ struct Statistics {
               .height(50)
               .fontSize(16)
               .fontColor('#FFFFFF')
-              .backgroundColor('#007AFF')
+              .backgroundColor(this.getThemeColor('accentColor'))
               .borderRadius(25)
               .onClick(() => {
                 this.exportData();
@@ -468,7 +498,7 @@ struct Statistics {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor($r("app.color.backgroundColor"))
+    .backgroundColor(this.getThemeColor('backgroundColor'))
   }
 }
 
@@ -476,13 +506,14 @@ struct Statistics {
 @Component
 struct Card {
   @BuilderParam content: () => void
+  @Prop cardColor: string = '#FFFFFF'
 
   build() {
     Column() {
       this.content()
     }
     .width('100%')
-    .backgroundColor($r("app.color.HealthbackgroundColor"))
+    .backgroundColor(this.cardColor)
     .borderRadius(12)
     .shadow({
       radius: 4,

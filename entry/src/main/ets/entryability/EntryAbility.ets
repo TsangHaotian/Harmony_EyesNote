@@ -17,6 +17,7 @@ export default class EntryAbility extends UIAbility {
   onWindowStageCreate(windowStage: window.WindowStage): void {
     // Main window is created, set main page for this ability
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
+    this.setImmersiveSystemBars(windowStage);
 
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
@@ -40,5 +41,26 @@ export default class EntryAbility extends UIAbility {
   onBackground(): void {
     // Ability has back to background
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
+  }
+
+  private async setImmersiveSystemBars(windowStage: window.WindowStage): Promise<void> {
+    try {
+      const mainWindow: window.Window = await windowStage.getMainWindow();
+      await mainWindow.setSystemBarEnable(['status', 'navigation']);
+      const systemBarProps: window.SystemBarProperties = {
+        statusBarColor: '#00000000',
+        navigationBarColor: '#00000000',
+        statusBarContentColor: '#ff000000',
+        navigationBarContentColor: '#ff000000'
+      };
+      await mainWindow.setSystemBarProperties(systemBarProps);
+    } catch (err) {
+      hilog.error(
+        DOMAIN,
+        'testTag',
+        'Failed to init immersive system bars. Cause: %{public}s',
+        JSON.stringify(err)
+      );
+    }
   }
 }

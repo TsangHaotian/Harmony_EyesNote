@@ -173,7 +173,7 @@ struct Settings {
             Image($r('app.media.ic_right'))
               .width(20)
               .height(20)
-              .fillColor('#666666')
+              .fillColor(this.getThemeColor('mutedTextColor'))
           }
           .width('100%')
           .height(56)
@@ -199,7 +199,7 @@ struct Settings {
             Image($r('app.media.ic_right'))
               .width(20)
               .height(20)
-              .fillColor('#666666')
+              .fillColor(this.getThemeColor('mutedTextColor'))
           }
           .width('100%')
           .height(56)

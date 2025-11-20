@@ -1100,7 +1100,7 @@ NotePage() {
                 
                 // 使用按钮
                 Button('使用')
-                  .width('100%')
+                  .width('70%')
                   .height(36)
                   .fontSize(14)
                   .fontColor('#FFFFFF')
