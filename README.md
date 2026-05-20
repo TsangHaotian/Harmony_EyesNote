@@ -1,71 +1,112 @@
+# Harmony EyesNote 👁️📝
 
-1 系统简介  
-Harmony EyesNote（眨眼笔记）V1.0 是一款运行于 HarmonyOS NEXT 的综合型应用平台，核心目标是在同一工作台中完成笔记记录、健康打卡、智能分析与数据回顾。系统由 Index、NoteEditor、NoteDetail、Settings、Statistics 五个主要页面协同构成，页面状态通过 @State 管理，业务数据由 Storage 单例统一写入 @ohos.data.preferences 本地实例 noteApp。在实现策略上，应用采用“主界面集中入口 + 页面分工处理 + 本地持久化回写”的组织方式，保证用户每次进入应用时可以恢复最近编辑内容、历史笔记、健康目标和 AI 对话记录。系统同时集成 DeepSeek 接口用于笔记整理与健康问答，支持在笔记编辑页与健康 AI 页分别触发分析请求，并将结果回填到对应数据区，实现从输入、处理到保存的闭环。  
+> An integrated "Notes + Health + AI" workspace for **HarmonyOS NEXT**, organizing, analyzing, and backing up your daily info in the blink of an eye.
 
-应用界面采用卡片式布局与底部三分导航（笔记、健康、健康Deepseek），在 EntryAbility 启动后默认加载 pages/Index，并通过沉浸式系统栏设置优化显示空间。健康模块围绕饮水、睡眠、步数、心情四个指标展开，评分与洞察由 HealthCalculator 统一计算，统计页显示总览、评分、建议与近七日记录；设置页提供主题切换、数据导出、数据清空与统计页跳转，并保留系统级备份扩展能力 EntryBackupAbility。项目强调可追踪的数据变化，每次用户操作都会触发保存或刷新逻辑，从而在页面跳转后保持结果一致，这也是本说明文档操作步骤的重点。
+## 📖 Project Overview
 
-2 系统运行环境  
-HarmonyOS NEXT 5.0 及以上版本。  
-SDK 版本：HarmonyOS SDK 5.0.5 (17)。  
-API 等级：API Level 17。  
-网络权限：ohos.permission.INTERNET（用于 AI 接口请求）。
+**Harmony EyesNote** evolves from a quick note-taking app into a comprehensive productivity hub. It introduces **AI-powered organization**, a **Health Data Cockpit**, **Statistical Dashboards**, and **System-level Backup Extensions**. This allows you to complete the full loop of **Record → Analyze → Insight → Backup** within a single app.
 
-3 系统界面与操作流程展示
+*   **Target Environment**: DevEco Studio 4.1+
+*   **Support**: Real devices & NEXT Emulators
 
-3.1 系统总体介绍  
-系统主界面包含顶部标题区、快速模板区、当前笔记区、历史笔记区和底部导航区，用户可在一个页面完成“写入内容、查看历史、切换功能模块”的连续操作。底部导航切换后，页面主体采用平移动画进入健康页或 AI 页，不会丢失已写入的本地数据；当用户进入设置页后再返回主界面，主题配置会即时生效并保持一致。  
+## 📸 Screenshots
+<img width="300" height="645" alt="Screenshot_2025-11-20T174335" src="https://github.com/user-attachments/assets/407cba6d-65ce-4594-97db-78a966324e02" />
+<img width="300" height="645" alt="Screenshot_2025-11-20T174342" src="https://github.com/user-attachments/assets/9f2f6de0-f29d-469f-b776-cdb4043c8e2a" />
+<img width="300" height="645" alt="Screenshot_2025-11-20T174427" src="https://github.com/user-attachments/assets/4cc40b0e-0e0f-4c8f-acf3-07dfd7136941" />
+<img width="300" height="645" alt="Screenshot_2025-11-20T174358" src="https://github.com/user-attachments/assets/5c0b8630-aea1-4418-b474-ee2cee7a93eb" />
+<img width="300" height="645" alt="Screenshot_2025-11-20T174349" src="https://github.com/user-attachments/assets/5626a02b-9e88-4e3b-981c-1edffaf51e99" />
 
-图1 系统总体介绍图（截图要求：进入应用后停留在主界面，完整截取顶部栏、模板卡片、当前笔记、历史笔记、底部导航，必须包含系统状态栏，体现这是启动后的首屏）。进入位置：应用启动后默认进入主页面（Index，底部导航默认在“笔记”）。画面必含：顶部 EyesNote 标题和设置图标、快速模板区域、当前笔记区域、历史笔记区域、底部导航三入口（笔记/健康/健康Deepseek）。拍摄提示：页面停在首屏不滚动。
+## ✨ Key Features
 
-3.2 系统各功能模块操作说明
+### 🧠 Multimodal Note Workspace
+- **Dual-Panel View**: Instant notes vs. History with real-time word count.
+- **Smart Templates**: One-click insertion of predefined templates (Meeting, Study, Shopping, Health).
+- **Quick Tools**: Date/Time, To-do lists, Dividers, etc.
+- **Customization**: Save custom templates permanently for recurring scenarios.
 
-3.2.1 主界面与笔记编辑联动流程  
-用户从主界面点击“当前笔记”输入区域会跳转至编辑页 NoteEditor，在编辑页输入内容后可点击“保存到历史笔记”或顶部“保存”按钮返回主界面。若执行保存，主界面历史笔记列表会新增一条记录并显示字数；若仅点击左上返回图标（保存并返回当前笔记），则主界面当前笔记文本保留、历史区不新增。主界面还支持“历史笔记搜索”，点击放大镜后搜索框展开，输入关键字将实时过滤列表，清空关键字后恢复全量记录。该流程建议按“输入前截图→编辑中截图→保存后截图→搜索过滤截图”连续取证，以展示页面跳转和数据变化来自同一操作链。  
+### 🤖 DeepSeek AI Organizer
+- **Integrated API**: Built-in `DeepSeek Chat` interface within `NoteEditor.ets`.
+- **Auto-Classification**: Automatically detects note types and outputs structured text.
+- **Nutritionist Mode**: Detects diet/health keywords to generate meal plans, nutritional estimates, and storage advice.
 
-图2 主界面初始状态（截图要求：路径为启动应用后默认页面，历史笔记数量与当前笔记内容均可见，作为操作前基线）。进入位置：保持在笔记首页。画面必含：当前笔记区域、历史笔记列表、底部导航在“笔记”。  
-图3 编辑页面及工具栏（截图要求：从图2点击当前笔记区进入，截到“编辑工具”横向按钮、字数统计、底部“保存到历史笔记/AI分析”按钮）。操作路径：图2点击“当前笔记”区域进入 NoteEditor。画面必含：顶部“编辑笔记”、工具栏、字数统计和底部双按钮。  
-图4 保存后回到主界面（截图要求：执行保存后返回，历史笔记第一条出现新内容，字数变化清晰可见，底部导航仍在“笔记”）。操作路径：图3点击“保存到历史笔记”或顶部保存并返回。画面必含：历史笔记首条新增内容与字数变化。  
-图5 搜索过滤结果（截图要求：点击历史区右上“🔍”，二级区域即搜索框需要展开并保留在画面内，输入关键词后只显示命中记录）。操作路径：图4点击右上“🔍”展开搜索框并输入关键词。画面必含：搜索框展开态和过滤后的列表。
-本流程截图顺序必须按图2→图3→图4→图5提交，不可打乱。
+### ❤️ Health Center & Tracking
+- **Core Metrics**: Track Water Intake, Sleep, Steps, and Mood directly in `Index.ets`.
+- **Data Persistence**: Writes data to `@ohos.data.preferences`.
+- **Smart Analysis**: `HealthCalculator.ets` computes daily scores, trends, and improvement suggestions with visual cards.
 
-3.2.2 AI笔记整理流程与结果回写  
-在 NoteEditor 或 NoteDetail 页面中，用户输入笔记内容后点击“AI分析”，系统通过 @ohos.net.http 请求 DeepSeek 接口并在分析期间显示“AI正在分析，请稍候...”。分析成功后，文本框内容会被结构化结果替换，同时写回本地存储；若该笔记来自历史记录，保存后再返回主界面时对应历史项会同步更新。建议在此部分提供三张连续截图：第一张为分析前原始文本，第二张为加载状态，第三张为分析后内容，三图中页面区域和按钮位置需一致，以便审查人员直观看到“前后内容如何变化”。  
+### 📊 Statistical Cockpit
+- **Comprehensive Views**: Overview of notes, health averages, today's score, and trend insights (`Statistics.ets`).
+- **Export**: Export raw data as JSON for manual backup or cloud sync.
+- **Multi-dimensional**: Weekly comparisons, mood frequency analysis, and recent records.
 
-图6 AI分析前（截图要求：编辑页中已有一段原始笔记文本，显示“AI分析”按钮可点击）。进入位置：NoteEditor 或 NoteDetail 页面。画面必含：原始文本与可点击“AI分析”按钮。  
-图7 AI分析中（截图要求：点击后出现加载提示或转圈组件，保持同一页面区域，体现触发动作与即时反馈）。操作路径：图6点击“AI分析”。画面必含：加载提示“AI正在分析，请稍候...”或加载动画。  
-图8 AI分析后（截图要求：同一文本区域内容变为结构化结果，可看到与图6明显不同，建议保留保存按钮一并入镜）。等待结果返回后拍摄。画面必含：结构化结果与保存相关按钮。
-本流程截图顺序必须按图6→图7→图8提交，不可打乱。
+### 🎨 Themes & Personalization
+- **Dynamic Theming**: Multiple preset themes + custom color palettes (`Theme.ets`).
+- **Real-time Sync**: All pages update instantly when theme changes.
+- **Native Feel**: Animated theme selectors and icon-based settings aligned with HarmonyOS design language.
 
-3.2.3 健康管理录入与统计联动流程  
-用户在底部导航点击“健康”进入健康追踪页后，可通过加减按钮修改饮水、睡眠、步数，并通过心情按钮切换当日情绪，同时在“健康目标设置”中调整三项目标值。每次增减操作都会触发保存，今日数据会写入健康数据与当日记录；随后切换到统计页，平均值、评分与建议会随录入结果更新。此模块建议先截“修改前健康页”，再截“修改后健康页”，最后截“统计页结果”，三图中的关键字段（如饮水杯数、步数、评分）应保持可读，确保审查时能够核对因果关系。健康页顶部“同步”按钮当前为预留能力，触发后会提示“功能待开发，敬请期待”，截图时可作为功能边界说明。  
+### 🔒 Security & Backup
+- **System Integration**: `EntryBackupAbility.ets` implements `onBackup/onRestore` hooks for HarmonyOS Backup Kit.
+- **Manual Export**: Data export/clear functions in Settings for easy migration.
 
-图9 健康页修改前（截图要求：底部导航在“健康”，四项指标与目标设置均完整显示）。进入位置：底部导航点击“健康”。画面必含：饮水、睡眠、步数、心情卡片和健康目标设置区。  
-图10 健康页修改后（截图要求：执行加减后，至少两个指标数值发生变化，目标设置区域仍在同屏）。操作建议：饮水 +2、步数 +200、心情切换至另一个选项。画面必含：至少两个指标数值变化。  
-图11 统计页联动结果（截图要求：从设置页或其他入口进入 Statistics 后，显示笔记统计、健康统计和“今日健康评分”卡片，分值与建议清晰可见；与图10相比，至少有1个健康数值和总评分发生变化）。操作路径：从设置页进入“数据统计”页。画面必含：笔记统计、健康统计、今日健康评分卡片。
-本流程截图顺序必须按图9→图10→图11提交，不可打乱。
+### 🚀 HarmonyOS Capabilities (Prepared)
+- **Health Kit Skeleton**: `HealthKitSync.ets` provides the framework for syncing steps/sleep via `@ohos.health` (requires permission handling).
 
-3.2.4 健康Deepseek对话、历史侧栏与保存到笔记流程  
-用户在底部导航切换到“健康Deepseek”后，可输入问题并发送，系统会结合当前健康数据与最近笔记上下文生成回复。对话页右上角“历史”图标点击后将从右侧滑出历史对话侧栏，侧栏属于二级菜单内容，必须在截图中完整展开；用户可在侧栏中选择历史会话恢复，也可删除指定历史记录。每条 AI 回复气泡下方提供“保存到笔记”按钮，点击后会将该条回复插入历史笔记列表，回到主界面即可查看新增内容。该部分建议按照“发送前→发送后→展开侧栏→保存到笔记后回主界面”四步截图，完整体现页面跳转、二级菜单、数据沉淀三个审核重点。  
+## 🏗️ System Structure
 
-图12 AI对话主界面（截图要求：输入框、发送按钮、至少一条用户消息与一条AI消息同时可见）。进入位置：底部导航点击“健康Deepseek”。操作建议：先发送一条问题后再截图。画面必含：用户消息、AI消息、输入框和发送按钮。  
-图13 历史侧栏展开（截图要求：点击右上历史按钮后，右侧抽屉完整展开，需包含标题“历史对话”、会话条目及关闭按钮，不可只截局部）。操作路径：图12点击右上历史按钮。画面必含：完整侧栏、标题、条目和关闭按钮。  
-图14 保存到笔记后结果（截图要求：在AI页点击“保存到笔记”后返回主界面历史笔记区，新增内容位于列表靠前位置；与图12相比，历史笔记条目数+1或首条内容发生变化）。操作路径：在AI消息下点击“保存到笔记”后返回主界面。画面必含：历史笔记新增AI内容。
-本流程截图顺序必须按图12→图13→图14提交，不可打乱。
+```text
+entry/
+├── src/main/ets
+│   ├── entryability/EntryAbility.ets          # UIAbility Entry Point
+│   ├── entrybackupability/EntryBackupAbility  # System Backup Extension
+│   ├── pages/
+│   │   ├── Index.ets                          # Main Workbench (Notes + Health + AI)
+│   │   ├── NoteEditor.ets                     # Editor & DeepSeek AI Integration
+│   │   ├── NoteDetail.ets                     # Historical Note Details
+│   │   ├── Settings.ets                       # Settings, Data Mgmt, Themes
+│   │   └── Statistics.ets                     # Stats & Health Insights
+│   └── utils/
+│       ├── Storage.ets                        # Preferences Wrapper (Singleton)
+│       ├── Theme.ets                          # Theme Presets & Cloning
+│       ├── HealthCalculator.ets               # Health Scoring Algorithm
+│       ├── HealthKitSync.ets                  # Health Kit Interface Skeleton
+│       └── Types.ets                          # Shared Type Definitions
+├── src/main/resources                         # Assets (Themes, Media, Profile)
+└── hvigorfile.ts / oh-package.json5           # Build & Dependency Config
+```
 
-3.2.5 设置页数据管理与主题切换流程  
-设置页由“数据管理”“主题风格”“关于应用”三部分组成，所有入口均在同一滚动页面内。用户点击“数据统计”会跳转统计页，点击“导出数据”会弹出导出提示并输出 JSON 文本到控制台，点击“清空所有数据”会出现二次确认对话框；点击“当前主题”卡片会展开主题选择列表，该展开区域属于二级菜单，截图时必须把展开前与展开后都记录下来，并确保选中标记与主题名称可辨识。若完成主题切换并返回主界面，主界面背景色和强调色会同步变化，建议补一张返回后的对比图作为主题操作闭环证据。  
+## 🛠️ Environment Requirements
+- **OS**: HarmonyOS NEXT
+- **IDE**: DevEco Studio 5.0+
 
-图15 设置页总览（截图要求：路径为主界面右上角设置图标进入，截到“数据管理”“主题风格”“关于应用”三个标题区块）。进入位置：主界面右上设置图标进入 Settings。画面必含：三个区块标题与对应入口卡片。  
-图16 主题二级菜单展开（截图要求：点击“当前主题”后展开主题列表，所有主题条目、勾选状态需在屏内）。操作路径：点击“当前主题”卡片展开列表。画面必含：主题条目与勾选状态。  
-图17 清空数据确认弹窗（截图要求：点击“清空所有数据”后保留确认对话框，需同时看到“取消/清空”两个按钮）。操作路径：点击“清空所有数据”后停留在弹窗。画面必含：弹窗标题与双按钮。  
-图18 切换主题后主界面（截图要求：从设置返回主界面，页面配色与图2形成明显差异，证明主题已生效）。操作路径：图16选择明显不同主题后返回主界面。画面必含：与图2形成明显配色差异的主界面。
-本流程截图顺序必须按图15→图16→图17→图18提交，不可打乱。
+## 🚀 Quick Start
 
-4 说明  
-Harmony EyesNote（眨眼笔记）V1.0 在实现上采用了以本地存储为中心的数据组织方式，笔记内容、健康指标、统计记录、主题偏好和 AI 对话历史统一由 Storage 管理，保证跨页面跳转时状态连续。应用的操作逻辑强调“有输入就有回写，有跳转就有结果”，因此本说明文档在截图编排上以连续操作链为主，而不是单纯展示界面外观：每个模块都包含操作前、执行过程、结果页面和数据变化四类证据。系统当前已实现笔记编辑与历史管理、AI笔记整理、健康打卡与评分、统计展示、主题切换、数据导出清空、AI历史会话管理等功能，同时保留了健康数据同步与系统备份扩展接口，便于后续版本迭代。综合来看，软件结构清晰、页面职责明确、数据流向可追踪，能够满足个人信息管理与健康辅助场景的实际使用需求，也满足软件著作权说明文档对“操作连贯、页面跳转明确、二级菜单展开、前后数据可验证”的提交要求。
+```bash
+# 1. Clone the repository
+git clone https://github.com/TsangHaotian/Harmony_EyesNote.git
+cd Harmony_EyesNote
+```
 
-5 截图编撰与审核对照规范（提交前必检）  
-为提升审核通过率，所有截图建议保持同一设备、同一分辨率、同一主题，不裁切核心区域，不遮挡导航与标题，不修改界面文字。每张截图应与图号一一对应，文件命名建议采用“图X_名称.png”，并按图号顺序插入文档，禁止跳号、并号或倒序。涉及“二级菜单”的功能必须提供“展开后”截图，不可仅展示入口按钮；涉及“数据变化”的功能必须提供“前后对照”截图，并在图注中标明对照字段（如笔记条目数、字数、饮水杯数、评分总分、主题颜色）。  
-建议在正式截图前先执行一次“清空数据→重启应用→按图号完整演练”的预拍流程，确认每一步都能稳定复现后再拍正式版本。若某一步依赖网络（如AI分析），应确保网络正常并避免在加载中途切换页面，防止出现无法解释的中间状态。最终提交前请进行一次交叉检查：文档中的页面名称、按钮名称、图号顺序、跳转路径、数据变化描述必须与实际截图完全一致，避免出现“文案写了但图中没有体现”的情况。
+## 💾 Data & Backup Strategy
+- **Local Storage**: All business data (notes, templates, health logs, preferences) is stored locally via `@ohos.data.preferences` using a unified `storage` singleton.
+- **JSON Export**: `Statistics.ets` and `Settings.ets` can export all data as structured JSON for manual backup.
+- **System Backup**: The `EntryBackupAbility.ets` skeleton is ready to integrate with the system backup channel for seamless migration.
+- **Health Sync**: `HealthKitSync.ets` contains example code for permissions and data fetching; enabling `@ohos.health` will activate automatic sync.
 
+## 🧪 Testing & Quality
+- **UI Tests**: Hypium samples located at `entry/src/main/ohosTest/ets`.
+- **Unit Tests**: Local unit tests at `entry/src/main/test/ets`.
+- **Run Command**: `hvigorw test` or use the Test Panel in DevEco Studio.
+- *Recommendation*: Add specific test files (e.g., `Storage.test.ets`) when introducing new data structures or algorithms.
 
+## 🗺️ Roadmap
+- [x] DeepSeek AI Organization & Template System
+- [x] Visual Health Center & Stats Cockpit
+- [x] Theme Editor & Custom Palette
+- [x] Data Export & System Backup Skeleton
+- [ ] HarmonyOS Health Kit Real-device Sync
+- [ ] Cloud Backup & Multi-device Collaboration
+- [ ] Advanced Charts & Achievement System
+
+## 📬 Feedback & Support
+- **Developer**: TsangHaotian
+- **Email**: TsangHaotian@hotmail.com
