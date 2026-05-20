@@ -19,18 +19,6 @@ interface DailyHealthRecord {
   mood: string;
 }
 
-// 笔记项（带分类和标签）
-interface NoteItem {
-  id: string; // 唯一ID
-  content: string; // 笔记内容
-  category?: string; // 分类
-  tags?: string[]; // 标签数组
-  createTime: string; // 创建时间
-  updateTime: string; // 更新时间
-  isFavorite?: boolean; // 是否收藏
-  isPinned?: boolean; // 是否置顶
-}
-
 // 统计数据
 interface StatisticsData {
   totalNotes: number; // 总笔记数
@@ -122,4 +110,4 @@ interface Message {
   content: string; // 消息内容
 }
 
-export { HealthData, DailyHealthRecord, NoteItem, StatisticsData, HealthScore, WeekComparison, HealthAnalysis, Achievement, HealthLevel, HealthReport, Template, ThemePreset, Message };
+export { HealthData, DailyHealthRecord, StatisticsData, HealthScore, WeekComparison, HealthAnalysis, Achievement, HealthLevel, HealthReport, Template, ThemePreset, Message };

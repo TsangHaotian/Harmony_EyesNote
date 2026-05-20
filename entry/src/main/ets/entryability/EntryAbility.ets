@@ -15,10 +15,8 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageCreate(windowStage: window.WindowStage): void {
-    // Main window is created, set main page for this ability
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageCreate');
     this.setImmersiveSystemBars(windowStage);
-
     windowStage.loadContent('pages/Index', (err) => {
       if (err.code) {
         hilog.error(DOMAIN, 'testTag', 'Failed to load the content. Cause: %{public}s', JSON.stringify(err));
@@ -29,17 +27,14 @@ export default class EntryAbility extends UIAbility {
   }
 
   onWindowStageDestroy(): void {
-    // Main window is destroyed, release UI related resources
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onWindowStageDestroy');
   }
 
   onForeground(): void {
-    // Ability has brought to foreground
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onForeground');
   }
 
   onBackground(): void {
-    // Ability has back to background
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onBackground');
   }
 
@@ -55,12 +50,7 @@ export default class EntryAbility extends UIAbility {
       };
       await mainWindow.setSystemBarProperties(systemBarProps);
     } catch (err) {
-      hilog.error(
-        DOMAIN,
-        'testTag',
-        'Failed to init immersive system bars. Cause: %{public}s',
-        JSON.stringify(err)
-      );
+      hilog.error(DOMAIN, 'testTag', 'Failed to init immersive system bars. Cause: %{public}s', JSON.stringify(err));
     }
   }
 }

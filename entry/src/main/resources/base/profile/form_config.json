@@ -1,0 +1,23 @@
+{
+  "forms": [
+    {
+      "name": "widget_health",
+      "displayName": "EyesNote 健康摘要",
+      "description": "查看笔记数量和今日健康数据",
+      "src": "./ets/widget/pages/HealthCardWidget.ets",
+      "uiSyntax": "arkts",
+      "window": {
+        "designWidth": 200,
+        "autoDesignWidth": true
+      },
+      "colorMode": "auto",
+      "isDefault": true,
+      "updateEnabled": true,
+      "scheduledUpdateTime": "10:00",
+      "updateDuration": 30,
+      "formConfigAbility": "ability://com.example.eyesnote.EntryAbility",
+      "defaultDimension": "2*2",
+      "supportDimensions": ["2*2"]
+    }
+  ]
+}
