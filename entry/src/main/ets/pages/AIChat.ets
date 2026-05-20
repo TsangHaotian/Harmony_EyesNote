@@ -1,4 +1,5 @@
 // AIChat.ets - AI 聊天 Tab 组件
+import router from '@ohos.router';
 import { storage } from '../utils/Storage';
 import { ThemePreset, Message } from '../utils/Types';
 import { callDeepSeek, HEALTH_ADVISOR_SYSTEM_PROMPT } from '../utils/AIService';
@@ -35,6 +36,24 @@ export struct AIChat {
 
   async sendAIMessage() {
     if (this.aiInput.trim().length === 0) return;
+
+    // 检查 API Key
+    const key = await storage.getApiKey();
+    if (!key) {
+      promptAction.showDialog({
+        title: '需要配置 API Key',
+        message: '请先在设置页面添加 DeepSeek API Key 才能使用 AI 功能',
+        buttons: [
+          { text: '去设置', color: '#007AFF' },
+          { text: '取消', color: '#666666' }
+        ]
+      }).then((result) => {
+        if (result.index === 0) {
+          router.pushUrl({ url: 'pages/Settings' });
+        }
+      }).catch(() => {});
+      return;
+    }
 
     const userMessage: Message = { role: 'user', content: this.aiInput };
     this.aiMessages.push(userMessage);
@@ -98,7 +117,7 @@ export struct AIChat {
     } catch (error) {
       const errorMessage: Message = {
         role: 'assistant',
-        content: `发生错误：${JSON.stringify(error)}`
+        content: `AI 请求失败，请检查 API Key 是否有效或网络连接`
       };
       this.aiMessages.push(errorMessage);
       await storage.saveAIChatHistory(this.aiMessages);

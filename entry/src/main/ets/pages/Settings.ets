@@ -15,6 +15,8 @@ struct Settings {
   @State themeSelectorOpacity: number = 0;
   @State themeSelectorOffset: number = -8;
   @State themeArrowAngle: number = 0;
+  @State apiKey: string = '';
+  @State showApiKey: boolean = false;
 
   getCurrentTheme(): ThemePreset { return getThemeById(this.selectedThemeId, this.themePresets); }
   getThemeColor(key: ThemeColorKey): string { return getThemeColorValue(this.getCurrentTheme(), key); }
@@ -23,6 +25,7 @@ struct Settings {
     const context = getContext(this) as common.UIAbilityContext;
     await storage.init(context);
     this.themePresets = cloneThemePresets();
+    this.apiKey = await storage.getApiKey();
     const savedThemeId = await storage.getThemePreference();
     if (savedThemeId) {
       const exists = this.themePresets.some((t: ThemePreset) => t.id === savedThemeId);
@@ -132,6 +135,62 @@ struct Settings {
           .backgroundColor(this.getThemeColor('cardColor'))
           .shadow({ radius: 2, color: '#00000006', offsetX: 0, offsetY: 1 })
           .onClick(() => { this.clearAllData(); })
+
+          Divider().strokeWidth(0.5).color('#E5E5EA').margin({ top: 16, bottom: 16 })
+
+          // API Key 配置
+          Text('AI 配置').fontSize(18).fontWeight(FontWeight.Bold).fontColor(this.getThemeColor('textColor')).width('100%').margin({ bottom: 8 })
+
+          Column({ space: 8 }) {
+            Row() {
+              Text('🔑 DeepSeek API Key').fontSize(14).fontColor(this.getThemeColor('textColor'))
+              Blank()
+              Image($r('app.media.ic_about')).width(18).height(18)
+                .fillColor(this.getThemeColor('mutedTextColor'))
+                .onClick(() => {
+                  promptAction.showDialog({
+                    title: '获取 API Key',
+                    message: '前往 https://platform.deepseek.com 注册并创建 API Key',
+                    buttons: [{ text: '知道了', color: '#007AFF' }]
+                  });
+                })
+            }
+            .width('100%')
+
+            Row({ space: 8 }) {
+              TextInput({ placeholder: 'sk-...', text: this.apiKey })
+                .layoutWeight(1)
+                .height(44)
+                .fontSize(14)
+                .type(this.showApiKey ? InputType.Normal : InputType.Password)
+                .backgroundColor(this.getThemeColor('cardColor'))
+                .borderRadius(8)
+                .padding({ left: 12, right: 12 })
+                .onChange((value: string) => { this.apiKey = value; })
+
+              Button(this.showApiKey ? '隐藏' : '显示')
+                .fontSize(12).fontColor('#FFFFFF')
+                .backgroundColor(this.getThemeColor('accentColor'))
+                .borderRadius(8).height(44).width(56)
+                .onClick(() => { this.showApiKey = !this.showApiKey; })
+            }
+            .width('100%')
+
+            Row() {
+              Button('保存')
+                .fontSize(14).fontColor('#FFFFFF')
+                .backgroundColor(this.getThemeColor('accentColor'))
+                .borderRadius(8).height(40).width('100%')
+                .onClick(async () => {
+                  await storage.saveApiKey(this.apiKey);
+                  promptAction.showToast({ message: 'API Key 已保存', duration: 2000 });
+                })
+            }
+            .width('100%')
+          }
+          .width('100%').padding(16)
+          .backgroundColor(this.getThemeColor('cardColor')).borderRadius(12)
+          .shadow({ radius: 2, color: '#00000006', offsetX: 0, offsetY: 1 })
 
           Divider().strokeWidth(0.5).color('#E5E5EA').margin({ top: 16, bottom: 16 })
 

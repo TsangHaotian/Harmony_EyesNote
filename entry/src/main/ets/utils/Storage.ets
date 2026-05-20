@@ -482,6 +482,32 @@ class StorageManager {
   }
 
   /**
+   * 保存 DeepSeek API Key
+   */
+  public async saveApiKey(apiKey: string): Promise<void> {
+    if (!this.pref) { return; }
+    try {
+      await this.pref.put('deepseekApiKey', apiKey);
+      await this.pref.flush();
+    } catch (error) {
+      console.error(`API Key保存失败: ${error}`);
+    }
+  }
+
+  /**
+   * 获取 DeepSeek API Key
+   */
+  public async getApiKey(): Promise<string> {
+    if (!this.pref) { return ''; }
+    try {
+      return await this.pref.get('deepseekApiKey', '') as string;
+    } catch (error) {
+      console.error(`API Key获取失败: ${error}`);
+      return '';
+    }
+  }
+
+  /**
    * 清空所有数据
    */
   public async clearAllData(): Promise<void> {

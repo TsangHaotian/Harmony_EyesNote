@@ -119,6 +119,25 @@ struct NoteEditor {
       promptAction.showToast({ message: '笔记内容不能为空', duration: 2000 });
       return;
     }
+
+    // 检查 API Key
+    const key = await storage.getApiKey();
+    if (!key) {
+      promptAction.showDialog({
+        title: '需要配置 API Key',
+        message: '请先在设置页面添加 DeepSeek API Key 才能使用 AI 功能',
+        buttons: [
+          { text: '去设置', color: '#007AFF' },
+          { text: '取消', color: '#666666' }
+        ]
+      }).then((result) => {
+        if (result.index === 0) {
+          router.pushUrl({ url: 'pages/Settings' });
+        }
+      }).catch(() => {});
+      return;
+    }
+
     await storage.saveCurrentNote(this.editedContent);
     this.isAnalyzing = true;
     this.showLoading = true;
@@ -132,7 +151,7 @@ struct NoteEditor {
       await storage.saveCurrentNote(result);
       promptAction.showToast({ message: 'AI分析完成', duration: 2000 });
     } catch (err) {
-      promptAction.showToast({ message: `分析失败：${JSON.stringify(err)}`, duration: 3000 });
+      promptAction.showToast({ message: `AI 请求失败，请检查 API Key 是否有效`, duration: 3000 });
     } finally {
       this.isAnalyzing = false;
       this.showLoading = false;

@@ -1,10 +1,26 @@
 // AIService.ets - 统一 AI 服务调用
 import http from '@ohos.net.http';
+import { storage } from './Storage';
 
 // DeepSeek API 配置
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
-const DEEPSEEK_API_KEY = 'Bearer sk-20faf5c818224258a495651e2d663907';
 const DEEPSEEK_MODEL = 'deepseek-chat';
+
+// 缓存 API Key，避免每次请求都读 Preferences
+let cachedApiKey: string = '';
+
+async function getApiKey(): Promise<string> {
+  if (cachedApiKey) {
+    return cachedApiKey;
+  }
+  const key = await storage.getApiKey();
+  if (key) {
+    cachedApiKey = key;
+    return key;
+  }
+  // 没有配置 Key 时返回空
+  return '';
+}
 
 // 笔记整理助手系统提示词
 const NOTE_ANALYSIS_SYSTEM_PROMPT =
@@ -96,6 +112,10 @@ interface DeepSeekResponse {
 
 // 调用 DeepSeek API
 async function callDeepSeek(messages: AIServiceMessage[], maxTokens: number = 500): Promise<string> {
+  const apiKey = await getApiKey();
+  if (!apiKey) {
+    throw new Error('请先在设置页面配置 DeepSeek API Key');
+  }
   const client = http.createHttp();
   try {
     const resp = await client.request(
@@ -104,7 +124,7 @@ async function callDeepSeek(messages: AIServiceMessage[], maxTokens: number = 50
         method: http.RequestMethod.POST,
         header: {
           'Content-Type': 'application/json',
-          'Authorization': DEEPSEEK_API_KEY
+          'Authorization': `Bearer ${apiKey}`
         },
         extraData: JSON.stringify({
           model: DEEPSEEK_MODEL,
