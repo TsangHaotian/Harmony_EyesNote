@@ -53,7 +53,7 @@ export struct AIChat {
             notesContext += `笔记${index + 1}：${note.substring(0, 200)}${note.length > 200 ? '...' : ''}\n\n`;
           }
         });
-        notesContext += '你可以参考这些历史笔记内容，结合用户的健康数据，提供更个性化的健康建议。';
+        notesContext += '您可以参考这些历史笔记内容，结合用户的健康数据，提供更个性化的健康建议。';
       }
     } catch (error) {
       console.error(`获取历史笔记失败: ${error}`);
