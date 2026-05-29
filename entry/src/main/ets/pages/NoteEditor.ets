@@ -3,8 +3,8 @@ import router from '@ohos.router';
 import common from '@ohos.app.ability.common';
 import { storage } from '../utils/Storage';
 import promptAction from '@ohos.promptAction';
-import { ThemePreset } from '../utils/Types';
-import { getThemeColorValue, getThemeById, cloneThemePreset, cloneThemePresets, DEFAULT_THEME_ID, ThemeColorKey } from '../utils/ThemeHelper';
+import { ThemePreset, NoteItem } from '../utils/Types';
+import { ThemeColorKey, getTheme, getThemeColorValue } from '../utils/Theme';
 import { callDeepSeek, NOTE_ANALYSIS_SYSTEM_PROMPT } from '../utils/AIService';
 import { EditorToolbar } from '../components/EditorToolbar';
 
@@ -21,34 +21,16 @@ struct NoteEditor {
   @State toolbarOffset: number = 0;
   @State isAnalyzing: boolean = false;
   @State showLoading: boolean = false;
-  @State themePresets: ThemePreset[] = cloneThemePresets();
-  @State selectedThemeId: string = DEFAULT_THEME_ID;
 
-  getCurrentTheme(): ThemePreset {
-    return getThemeById(this.selectedThemeId, this.themePresets);
-  }
+  private theme: ThemePreset = getTheme();
 
   getThemeColor(key: ThemeColorKey): string {
-    return getThemeColorValue(this.getCurrentTheme(), key);
-  }
-
-  async syncThemePresetsFromStorage() {
-    const presets = cloneThemePresets();
-    const customTheme = await storage.getCustomThemePreset();
-    if (customTheme) presets.push(cloneThemePreset(customTheme));
-    this.themePresets = presets;
-  }
-
-  async refreshTheme() {
-    await this.syncThemePresetsFromStorage();
-    const themeId = await storage.getThemePreference();
-    this.selectedThemeId = (themeId && this.themePresets.some((t: ThemePreset) => t.id === themeId)) ? themeId : DEFAULT_THEME_ID;
+    return getThemeColorValue(this.theme, key);
   }
 
   async aboutToAppear() {
     const context = getContext(this) as common.UIAbilityContext;
     await storage.init(context);
-    await this.refreshTheme();
     const params = router.getParams() as EditorParams;
     const savedNote = await storage.getCurrentNote();
     this.editedContent = savedNote || params.currentNote || '';
@@ -56,7 +38,6 @@ struct NoteEditor {
   }
 
   async onPageShow() {
-    await this.refreshTheme();
     const savedNote = await storage.getCurrentNote();
     if (savedNote && savedNote !== this.editedContent) {
       this.editedContent = savedNote;
@@ -70,17 +51,25 @@ struct NoteEditor {
     }
     await storage.saveCurrentNote(this.editedContent);
     const historyNotes = await storage.getHistoryNotes();
-    historyNotes.unshift(this.editedContent.trim());
+    const now = new Date();
+    const y = now.getFullYear();
+    const m = (now.getMonth() + 1).toString().padStart(2, '0');
+    const d = now.getDate().toString().padStart(2, '0');
+    const h = now.getHours().toString().padStart(2, '0');
+    const min = now.getMinutes().toString().padStart(2, '0');
+    const noteContent: string = this.editedContent.trim();
+    const newNote: NoteItem = { content: noteContent, createdAt: `${y}-${m}-${d} ${h}:${min}` };
+    historyNotes.unshift(newNote);
     await storage.saveHistoryNotes(historyNotes);
     this.editedContent = '';
     await storage.saveCurrentNote('');
     promptAction.showToast({ message: '已保存到历史笔记', duration: 2000 });
-    router.back({ url: 'pages/Index', params: { currentNote: '', noteSaved: true } });
+    router.back({ url: 'pages/Index', params: { currentNote: '', _refresh: Date.now() } });
   }
 
   async saveAndBack() {
     await storage.saveCurrentNote(this.editedContent);
-    router.back({ url: 'pages/Index', params: { currentNote: this.editedContent } });
+    router.back({ url: 'pages/Index', params: { currentNote: this.editedContent, _refresh: Date.now() } });
   }
 
   getWordCount(): number { return this.editedContent.replace(/\s/g, '').length; }
@@ -160,6 +149,9 @@ struct NoteEditor {
 
   build() {
     Column() {
+      // 顶部安全距离（避开摄像头区域）
+      Row().width('100%').height(40).backgroundColor(this.getThemeColor('backgroundColor'))
+
       // 顶部导航栏
       Row() {
         Image($r('app.media.ic_backup')).width(28).height(28).padding(4).margin({ right: 12 })
@@ -245,7 +237,7 @@ struct NoteEditor {
         }
       }
       .width('100%')
-      .padding({ left: 20, right: 20, top: 12, bottom: 16 })
+      .padding({ left: 20, right: 20, top: 12, bottom: 36 })
       .backgroundColor(this.getThemeColor('cardColor'))
     }
     .width('100%').height('100%')

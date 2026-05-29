@@ -5,7 +5,7 @@ import { storage } from '../utils/Storage';
 import { StatisticsData, DailyHealthRecord, HealthScore, HealthAnalysis, ThemePreset } from '../utils/Types';
 import { HealthCalculator } from '../utils/HealthCalculator';
 import promptAction from '@ohos.promptAction';
-import { DEFAULT_THEME_ID, ThemeColorKey, getThemeById, getThemeColorValue } from '../utils/ThemeHelper';
+import { ThemeColorKey, getTheme, getThemeColorValue } from '../utils/Theme';
 import { Card } from '../components/Card';
 
 @Entry
@@ -18,24 +18,15 @@ struct Statistics {
   @State isLoading: boolean = true;
   @State healthScore: HealthScore | null = null;
   @State healthAnalysis: HealthAnalysis | null = null;
-  @State themePresets: ThemePreset[] = [];
-  @State selectedThemeId: string = DEFAULT_THEME_ID;
 
-  getCurrentTheme(): ThemePreset { return getThemeById(this.selectedThemeId, this.themePresets); }
-  getThemeColor(key: ThemeColorKey): string { return getThemeColorValue(this.getCurrentTheme(), key); }
+  private theme: ThemePreset = getTheme();
+
+  getThemeColor(key: ThemeColorKey): string { return getThemeColorValue(this.theme, key); }
 
   async aboutToAppear() {
     const context = getContext(this) as common.UIAbilityContext;
     await storage.init(context);
-    await this.loadTheme();
     await this.loadData();
-  }
-
-  async loadTheme() {
-    const presets = await storage.getCustomThemePreset();
-    this.themePresets = presets ? [presets] : [];
-    const savedThemeId = await storage.getThemePreference();
-    this.selectedThemeId = savedThemeId || DEFAULT_THEME_ID;
   }
 
   async loadData() {
@@ -92,6 +83,9 @@ struct Statistics {
 
   build() {
     Column() {
+      // 顶部安全距离（避开摄像头区域）
+      Row().width('100%').height(40).backgroundColor(this.getThemeColor('backgroundColor'))
+
       // 顶部导航栏
       Row() {
         Image($r('app.media.ic_backup')).width(28).height(28).padding(4).margin({ right: 12 })

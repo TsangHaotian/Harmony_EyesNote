@@ -1,20 +1,13 @@
 // AIChat.ets - AI 聊天 Tab 组件
 import router from '@ohos.router';
 import { storage } from '../utils/Storage';
-import { ThemePreset, Message } from '../utils/Types';
-import { callDeepSeek, HEALTH_ADVISOR_SYSTEM_PROMPT } from '../utils/AIService';
+import { Message, NoteItem } from '../utils/Types';
+import { callDeepSeek } from '../utils/AIService';
 import promptAction from '@ohos.promptAction';
 
 @Component
 export struct AIChat {
-  @Prop themePresets: ThemePreset[] = []
-  @Prop selectedThemeId: string = ''
   getThemeColor: (key: string) => string = () => ''
-  @Prop waterCount: number = 0
-  @Prop sleepHours: number = 7
-  @Prop stepsCount: number = 0
-  @Prop mood: string = '开心'
-  @Link historyNotes: string[]
 
   @State aiMessages: Message[] = []
   @State aiInput: string = ''
@@ -67,28 +60,25 @@ export struct AIChat {
       if (historyNotes && historyNotes.length > 0) {
         const recentNotes = historyNotes.slice(0, 20);
         notesContext = '\n\n用户的历史笔记内容（供参考）：\n';
-        recentNotes.forEach((note: string, index: number) => {
-          if (note && note.trim().length > 0) {
-            notesContext += `笔记${index + 1}：${note.substring(0, 200)}${note.length > 200 ? '...' : ''}\n\n`;
+        recentNotes.forEach((note: NoteItem, index: number) => {
+          if (note.content && note.content.trim().length > 0) {
+            notesContext += `笔记${index + 1}：${note.content.substring(0, 200)}${note.content.length > 200 ? '...' : ''}\n\n`;
           }
         });
-        notesContext += '您可以参考这些历史笔记内容，结合用户的健康数据，提供更个性化的健康建议。';
+        notesContext += '您可以参考这些历史笔记内容，帮助用户整理、检索或分析笔记。';
       }
     } catch (error) {
       console.error(`获取历史笔记失败: ${error}`);
     }
 
-    const healthDataStr = `健康数据：
-- 饮水量：${this.waterCount}杯
-- 睡眠时间：${this.sleepHours}小时
-- 步数：${this.stepsCount}步
-- 心情：${this.mood}${notesContext}`;
+    const systemPrompt = `你是一个智能笔记助手，帮助用户整理、检索和分析他们的笔记内容。
+你可以根据用户的历史笔记回答问题、总结内容、提取关键信息，或者帮助用户梳理思路。
+请用中文回答，保持回答简洁有条理。${notesContext}`;
 
     try {
       const result = await callDeepSeek([
-        { role: 'system', content: HEALTH_ADVISOR_SYSTEM_PROMPT },
-        ...this.aiMessages.slice(-20),
-        { role: 'system', content: healthDataStr }
+        { role: 'system', content: systemPrompt },
+        ...this.aiMessages.slice(-20)
       ], 2000);
 
       // 先插入一条空消息占位，然后逐字追加
@@ -127,8 +117,16 @@ export struct AIChat {
 
   async saveAIMessageToNotes(content: string) {
     try {
-      this.historyNotes.unshift(content.trim());
-      await storage.saveHistoryNotes(this.historyNotes);
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = (now.getMonth() + 1).toString().padStart(2, '0');
+      const d = now.getDate().toString().padStart(2, '0');
+      const h = now.getHours().toString().padStart(2, '0');
+      const min = now.getMinutes().toString().padStart(2, '0');
+      const newNote: NoteItem = { content: content.trim(), createdAt: `${y}-${m}-${d} ${h}:${min}` };
+      const allNotes = await storage.getHistoryNotes();
+      allNotes.unshift(newNote);
+      await storage.saveHistoryNotes(allNotes);
       promptAction.showToast({ message: '已保存到历史笔记', duration: 2000 });
     } catch (error) {
       console.error(`保存AI消息到笔记失败: ${error}`);
@@ -232,11 +230,14 @@ export struct AIChat {
 
   build() {
     Column() {
+      // 顶部安全距离（避开摄像头区域）
+      Row().width('100%').height(40).backgroundColor(this.getThemeColor('backgroundColor'))
+
       // 顶部标题栏
       Row() {
         Column() {
-          Text('健康Deepseek').fontSize(24).fontWeight(FontWeight.Bold).fontColor(this.getThemeColor('textColor'))
-          Text('您的专属健康顾问').fontSize(12).fontColor(this.getThemeColor('mutedTextColor')).margin({ top: 4 })
+          Text('DeepSeek').fontSize(24).fontWeight(FontWeight.Bold).fontColor(this.getThemeColor('textColor'))
+          Text('笔记智能助手').fontSize(12).fontColor(this.getThemeColor('mutedTextColor')).margin({ top: 4 })
         }
         .alignItems(HorizontalAlign.Start)
         .layoutWeight(1)

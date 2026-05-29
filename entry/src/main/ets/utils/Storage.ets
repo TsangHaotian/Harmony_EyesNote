@@ -1,6 +1,6 @@
 import preferences from '@ohos.data.preferences';
 import common from '@ohos.app.ability.common';
-import { HealthData, DailyHealthRecord, StatisticsData, HealthScore, HealthAnalysis, Template, ThemePreset, Message } from './Types'; // 导入共享接口
+import { NoteItem, HealthData, DailyHealthRecord, StatisticsData, HealthScore, HealthAnalysis, Template, ThemePreset, Message } from './Types'; // 导入共享接口
 import { HealthCalculator } from './HealthCalculator';
 
 class StorageManager {
@@ -37,9 +37,9 @@ class StorageManager {
 
   /**
    * 保存历史笔记
-   * @param notes 历史笔记数组
+   * @param notes 历史笔记对象数组
    */
-  public async saveHistoryNotes(notes: string[]): Promise<void> {
+  public async saveHistoryNotes(notes: NoteItem[]): Promise<void> {
     if (!this.pref) {
       throw new Error('首选项未初始化');
     }
@@ -55,19 +55,48 @@ class StorageManager {
 
   /**
    * 获取历史笔记
-   * @returns 历史笔记数组
+   * @returns 历史笔记对象数组
    */
-  public async getHistoryNotes(): Promise<string[]> {
+  public async getHistoryNotes(): Promise<NoteItem[]> {
     if (!this.pref) {
       throw new Error('首选项未初始化');
     }
     try {
-      const notesStr = await this.pref.get('historyNotes', '[]');
-      return JSON.parse(notesStr as string) as string[];
+      const notesStr: string = await this.pref.get('historyNotes', '[]') as string;
+      return StorageManager.parseHistoryNotes(notesStr);
     } catch (error) {
       console.error(`历史笔记获取失败: ${error}`);
       return [];
     }
+  }
+
+  private static parseHistoryNotes(raw: string): NoteItem[] {
+    const arr: object[] = JSON.parse(raw) as object[];
+    if (arr.length > 0 && typeof arr[0] === 'string') {
+      const now = StorageManager.getInstance().formatDateTime(new Date());
+      const result: NoteItem[] = [];
+      for (let i = 0; i < arr.length; i++) {
+        const item: NoteItem = { content: String(arr[i]), createdAt: now };
+        result.push(item);
+      }
+      return result;
+    }
+    const result: NoteItem[] = [];
+    for (let i = 0; i < arr.length; i++) {
+      const s: string = JSON.stringify(arr[i]);
+      const ni: NoteItem = JSON.parse(s) as NoteItem;
+      result.push(ni);
+    }
+    return result;
+  }
+
+  private formatDateTime(date: Date): string {
+    const y = date.getFullYear();
+    const m = (date.getMonth() + 1).toString().padStart(2, '0');
+    const d = date.getDate().toString().padStart(2, '0');
+    const h = date.getHours().toString().padStart(2, '0');
+    const min = date.getMinutes().toString().padStart(2, '0');
+    return `${y}-${m}-${d} ${h}:${min}`;
   }
 
   /**
@@ -303,9 +332,9 @@ class StorageManager {
     try {
       const notes = await this.getHistoryNotes();
       const records = await this.getDailyHealthRecords();
-      
+
       // 计算总字数
-      const totalWords = notes.reduce((sum, note) => sum + note.replace(/\s/g, '').length, 0);
+      const totalWords = notes.reduce((sum, note) => sum + note.content.replace(/\s/g, '').length, 0);
       
       // 计算健康数据平均值
       let avgWater = 0;
@@ -371,12 +400,12 @@ class StorageManager {
       interface ExportData {
         exportTime: string;
         version: string;
-        notes: string[];
+        notes: NoteItem[];
         healthData: HealthData;
         dailyHealthRecords: DailyHealthRecord[];
         customTemplates: Template[];
       }
-      
+
       const exportData: ExportData = {
         exportTime: new Date().toISOString(),
         version: '1.0.0',

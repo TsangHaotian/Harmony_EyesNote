@@ -1,4 +1,9 @@
 // 定义共享的类型接口
+interface NoteItem {
+  content: string;
+  createdAt: string; // ISO 日期字符串 YYYY-MM-DD HH:mm
+}
+
 interface HealthData {
   waterCount: number;
   sleepHours: number;
@@ -110,4 +115,4 @@ interface Message {
   content: string; // 消息内容
 }
 
-export { HealthData, DailyHealthRecord, StatisticsData, HealthScore, WeekComparison, HealthAnalysis, Achievement, HealthLevel, HealthReport, Template, ThemePreset, Message };
+export { NoteItem, HealthData, DailyHealthRecord, StatisticsData, HealthScore, WeekComparison, HealthAnalysis, Achievement, HealthLevel, HealthReport, Template, ThemePreset, Message };

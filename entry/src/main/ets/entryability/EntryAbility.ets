@@ -6,7 +6,8 @@ const DOMAIN = 0x0000;
 
 export default class EntryAbility extends UIAbility {
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
-    this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_NOT_SET);
+    // 固定亮色模式，不跟随系统暗色/亮色切换
+    this.context.getApplicationContext().setColorMode(ConfigurationConstant.ColorMode.COLOR_MODE_LIGHT);
     hilog.info(DOMAIN, 'testTag', '%{public}s', 'Ability onCreate');
   }
 
@@ -41,14 +42,10 @@ export default class EntryAbility extends UIAbility {
   private async setImmersiveSystemBars(windowStage: window.WindowStage): Promise<void> {
     try {
       const mainWindow: window.Window = await windowStage.getMainWindow();
-      await mainWindow.setSystemBarEnable(['status', 'navigation']);
-      const systemBarProps: window.SystemBarProperties = {
-        statusBarColor: '#00000000',
-        navigationBarColor: '#00000000',
-        statusBarContentColor: '#ff000000',
-        navigationBarContentColor: '#ff000000'
-      };
-      await mainWindow.setSystemBarProperties(systemBarProps);
+      // 启用全屏布局（内容延伸到状态栏和导航栏下方）
+      await mainWindow.setWindowLayoutFullScreen(true);
+      // 隐藏状态栏和导航栏
+      await mainWindow.setWindowSystemBarEnable([]);
     } catch (err) {
       hilog.error(DOMAIN, 'testTag', 'Failed to init immersive system bars. Cause: %{public}s', JSON.stringify(err));
     }

@@ -3,8 +3,8 @@ import router from '@ohos.router';
 import common from '@ohos.app.ability.common';
 import { storage } from '../utils/Storage';
 import promptAction from '@ohos.promptAction';
-import { ThemePreset } from '../utils/Types';
-import { getThemeColorValue, getThemeById, cloneThemePreset, cloneThemePresets, DEFAULT_THEME_ID, ThemeColorKey } from '../utils/ThemeHelper';
+import { ThemePreset, NoteItem } from '../utils/Types';
+import { ThemeColorKey, getTheme, getThemeColorValue } from '../utils/Theme';
 import { callDeepSeek, NOTE_ANALYSIS_SYSTEM_PROMPT } from '../utils/AIService';
 import { EditorToolbar } from '../components/EditorToolbar';
 
@@ -24,54 +24,35 @@ struct NoteDetail {
   @State toolbarOffset: number = 0;
   @State isAnalyzing: boolean = false;
   @State showLoading: boolean = false;
-  @State themePresets: ThemePreset[] = cloneThemePresets();
-  @State selectedThemeId: string = DEFAULT_THEME_ID;
 
-  getCurrentTheme(): ThemePreset {
-    return getThemeById(this.selectedThemeId, this.themePresets);
-  }
+  private theme: ThemePreset = getTheme();
 
   getThemeColor(key: ThemeColorKey): string {
-    return getThemeColorValue(this.getCurrentTheme(), key);
-  }
-
-  async syncThemePresetsFromStorage() {
-    const presets = cloneThemePresets();
-    const customTheme = await storage.getCustomThemePreset();
-    if (customTheme) presets.push(cloneThemePreset(customTheme));
-    this.themePresets = presets;
-  }
-
-  async refreshTheme() {
-    await this.syncThemePresetsFromStorage();
-    const themeId = await storage.getThemePreference();
-    this.selectedThemeId = (themeId && this.themePresets.some((t: ThemePreset) => t.id === themeId)) ? themeId : DEFAULT_THEME_ID;
+    return getThemeColorValue(this.theme, key);
   }
 
   async aboutToAppear() {
     const context = getContext(this) as common.UIAbilityContext;
     await storage.init(context);
-    await this.refreshTheme();
     const params = router.getParams() as NoteParams;
     this.noteContent = params.noteContent || '';
     this.noteIndex = params.noteIndex || -1;
     this.editedContent = this.noteContent;
     if (this.noteIndex >= 0) {
       const historyNotes = await storage.getHistoryNotes();
-      if (historyNotes[this.noteIndex] && historyNotes[this.noteIndex] !== this.editedContent) {
-        this.editedContent = historyNotes[this.noteIndex];
-        this.noteContent = historyNotes[this.noteIndex];
+      if (historyNotes[this.noteIndex] && historyNotes[this.noteIndex].content !== this.editedContent) {
+        this.editedContent = historyNotes[this.noteIndex].content;
+        this.noteContent = historyNotes[this.noteIndex].content;
       }
     }
   }
 
   async onPageShow() {
-    await this.refreshTheme();
     if (this.noteIndex >= 0) {
       const historyNotes = await storage.getHistoryNotes();
-      if (historyNotes[this.noteIndex] && historyNotes[this.noteIndex] !== this.editedContent) {
-        this.editedContent = historyNotes[this.noteIndex];
-        this.noteContent = historyNotes[this.noteIndex];
+      if (historyNotes[this.noteIndex] && historyNotes[this.noteIndex].content !== this.editedContent) {
+        this.editedContent = historyNotes[this.noteIndex].content;
+        this.noteContent = historyNotes[this.noteIndex].content;
       }
     }
   }
@@ -83,15 +64,22 @@ struct NoteDetail {
     }
     if (this.noteIndex >= 0) {
       const historyNotes = await storage.getHistoryNotes();
-      historyNotes[this.noteIndex] = this.editedContent;
+      historyNotes[this.noteIndex].content = this.editedContent;
       await storage.saveHistoryNotes(historyNotes);
     } else {
       const historyNotes = await storage.getHistoryNotes();
-      historyNotes.unshift(this.editedContent);
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = (now.getMonth() + 1).toString().padStart(2, '0');
+      const d = now.getDate().toString().padStart(2, '0');
+      const h = now.getHours().toString().padStart(2, '0');
+      const min = now.getMinutes().toString().padStart(2, '0');
+      const newNote: NoteItem = { content: this.editedContent, createdAt: `${y}-${m}-${d} ${h}:${min}` };
+      historyNotes.unshift(newNote);
       await storage.saveHistoryNotes(historyNotes);
       this.noteIndex = 0;
     }
-    router.back({ url: 'pages/Index', params: { content: this.editedContent, index: this.noteIndex } });
+    router.back({ url: 'pages/Index', params: { _refresh: Date.now() } });
   }
 
   getWordCount(): number { return this.editedContent.replace(/\s/g, '').length; }
@@ -148,7 +136,7 @@ struct NoteDetail {
 
     if (this.noteIndex >= 0) {
       const historyNotes = await storage.getHistoryNotes();
-      historyNotes[this.noteIndex] = this.editedContent;
+      historyNotes[this.noteIndex].content = this.editedContent;
       await storage.saveHistoryNotes(historyNotes);
     }
     this.isAnalyzing = true;
@@ -162,7 +150,7 @@ struct NoteDetail {
       this.editedContent = result;
       if (this.noteIndex >= 0) {
         const historyNotes = await storage.getHistoryNotes();
-        historyNotes[this.noteIndex] = result;
+        historyNotes[this.noteIndex].content = result;
         await storage.saveHistoryNotes(historyNotes);
       }
       promptAction.showToast({ message: 'AI分析完成', duration: 2000 });
@@ -176,6 +164,9 @@ struct NoteDetail {
 
   build() {
     Column() {
+      // 顶部安全距离（避开摄像头区域）
+      Row().width('100%').height(40).backgroundColor(this.getThemeColor('backgroundColor'))
+
       // 顶部导航栏
       Row() {
         Image($r('app.media.ic_backup')).width(28).height(28).padding(4).margin({ right: 12 })
@@ -249,6 +240,7 @@ struct NoteDetail {
           .width('100%').justifyContent(FlexAlign.Center).padding({ bottom: 8 })
         }
       }
+      .width('100%').padding({ left: 20, right: 20, top: 12, bottom: 32 })
     }
     .width('100%').height('100%')
     .backgroundColor(this.getThemeColor('backgroundColor'))

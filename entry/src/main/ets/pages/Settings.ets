@@ -4,56 +4,22 @@ import common from '@ohos.app.ability.common';
 import { storage } from '../utils/Storage';
 import promptAction from '@ohos.promptAction';
 import { ThemePreset } from '../utils/Types';
-import { DEFAULT_THEME_ID, ThemeColorKey, cloneThemePresets, getThemeById, getThemeColorValue } from '../utils/ThemeHelper';
+import { ThemeColorKey, getTheme, getThemeColorValue } from '../utils/Theme';
 
 @Entry
 @Component
 struct Settings {
-  @State themePresets: ThemePreset[] = cloneThemePresets();
-  @State selectedThemeId: string = DEFAULT_THEME_ID;
-  @State showThemeSelector: boolean = false;
-  @State themeSelectorOpacity: number = 0;
-  @State themeSelectorOffset: number = -8;
-  @State themeArrowAngle: number = 0;
   @State apiKey: string = '';
   @State showApiKey: boolean = false;
 
-  getCurrentTheme(): ThemePreset { return getThemeById(this.selectedThemeId, this.themePresets); }
-  getThemeColor(key: ThemeColorKey): string { return getThemeColorValue(this.getCurrentTheme(), key); }
+  private theme: ThemePreset = getTheme();
+
+  getThemeColor(key: ThemeColorKey): string { return getThemeColorValue(this.theme, key); }
 
   async aboutToAppear() {
     const context = getContext(this) as common.UIAbilityContext;
     await storage.init(context);
-    this.themePresets = cloneThemePresets();
     this.apiKey = await storage.getApiKey();
-    const savedThemeId = await storage.getThemePreference();
-    if (savedThemeId) {
-      const exists = this.themePresets.some((t: ThemePreset) => t.id === savedThemeId);
-      this.selectedThemeId = exists ? savedThemeId : DEFAULT_THEME_ID;
-    }
-  }
-
-  async selectTheme(themeId: string) {
-    this.selectedThemeId = themeId;
-    await storage.saveThemePreference(themeId);
-    const themeName = this.themePresets.find((t: ThemePreset) => t.id === themeId)?.name || '';
-    promptAction.showToast({ message: `已切换主题：${themeName}`, duration: 1500 });
-    this.animateThemeSelectorVisibility(false);
-  }
-
-  toggleThemeSelector() { this.animateThemeSelectorVisibility(!this.showThemeSelector); }
-
-  animateThemeSelectorVisibility(show: boolean) {
-    if (show) {
-      if (this.showThemeSelector) return;
-      this.showThemeSelector = true;
-      this.themeSelectorOpacity = 0; this.themeSelectorOffset = -8;
-      animateTo({ duration: 220, curve: 'linear' }, () => { this.themeSelectorOpacity = 1; this.themeSelectorOffset = 0; this.themeArrowAngle = 90; });
-    } else {
-      if (!this.showThemeSelector) return;
-      animateTo({ duration: 200, curve: 'linear' }, () => { this.themeSelectorOpacity = 0; this.themeSelectorOffset = -8; this.themeArrowAngle = 0; });
-      setTimeout(() => { this.showThemeSelector = false; }, 210);
-    }
   }
 
   async exportData() {
@@ -87,6 +53,9 @@ struct Settings {
 
   build() {
     Column() {
+      // 顶部安全距离（避开摄像头区域）
+      Row().width('100%').height(40).backgroundColor(this.getThemeColor('backgroundColor'))
+
       // 顶部导航栏
       Row() {
         Image($r('app.media.ic_backup')).width(28).height(28).padding(4).margin({ right: 12 })
@@ -191,54 +160,6 @@ struct Settings {
           .width('100%').padding(16)
           .backgroundColor(this.getThemeColor('cardColor')).borderRadius(12)
           .shadow({ radius: 2, color: '#00000006', offsetX: 0, offsetY: 1 })
-
-          Divider().strokeWidth(0.5).color('#E5E5EA').margin({ top: 16, bottom: 16 })
-
-          Text('主题风格').fontSize(18).fontWeight(FontWeight.Bold).fontColor(this.getThemeColor('textColor')).width('100%').margin({ bottom: 8 })
-
-          Row() {
-            Column({ space: 4 }) {
-              Text('当前主题').fontSize(14).fontColor(this.getThemeColor('mutedTextColor'))
-              Text(this.themePresets.find((t: ThemePreset) => t.id === this.selectedThemeId)?.name || '默认')
-                .fontSize(16).fontColor(this.getThemeColor('textColor')).fontWeight(FontWeight.Medium)
-            }
-            Blank()
-            Image($r('app.media.ic_backup2')).width(20).height(20).fillColor('#666666').rotate({ angle: this.themeArrowAngle })
-          }
-          .width('100%').height(72).padding({ left: 20, right: 20 }).borderRadius(12)
-          .backgroundColor(this.getThemeColor('cardColor'))
-          .shadow({ radius: 2, color: '#00000006', offsetX: 0, offsetY: 1 })
-          .onClick(() => { this.toggleThemeSelector(); })
-
-          if (this.showThemeSelector || this.themeSelectorOpacity > 0) {
-            Column({ space: 12 }) {
-              ForEach(this.themePresets, (theme: ThemePreset) => {
-                Row() {
-                  Column({ space: 6 }) {
-                    Text(theme.name).fontSize(16).fontColor(this.getThemeColor('textColor')).fontWeight(FontWeight.Medium)
-                    Row({ space: 8 }) {
-                      Text(`背景 ${theme.backgroundColor}`).fontSize(12).fontColor(this.getThemeColor('mutedTextColor'))
-                      Text(`强调 ${theme.accentColor}`).fontSize(12).fontColor(this.getThemeColor('mutedTextColor'))
-                    }
-                  }
-                  Blank()
-                  if (this.selectedThemeId === theme.id) {
-                    Text('✓').fontSize(18).fontColor(theme.accentColor)
-                  } else {
-                    Row().width(18).height(18).borderRadius(9)
-                      .border({ width: 1, color: '#E5E7EB' })
-                      .backgroundColor(this.getThemeColor('cardColor'))
-                  }
-                }
-                .width('100%').height(72).padding({ left: 20, right: 20 }).borderRadius(12)
-                .backgroundColor(this.getThemeColor('cardColor'))
-                .border({ width: 1, color: this.selectedThemeId === theme.id ? theme.accentColor : '#F1F5F9' })
-                .onClick(() => { this.selectTheme(theme.id); })
-              }, (theme: ThemePreset) => theme.id)
-            }
-            .width('100%').padding({ top: 12, bottom: 4 })
-            .opacity(this.themeSelectorOpacity).translate({ y: this.themeSelectorOffset })
-          }
 
           Divider().strokeWidth(0.5).color('#E5E5EA').margin({ top: 16, bottom: 16 })
 
