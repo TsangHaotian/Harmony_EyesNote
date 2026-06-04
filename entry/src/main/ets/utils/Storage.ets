@@ -85,6 +85,10 @@ class StorageManager {
     for (let i = 0; i < arr.length; i++) {
       const s: string = JSON.stringify(arr[i]);
       const ni: NoteItem = JSON.parse(s) as NoteItem;
+      // 兼容旧数据：没有 done 字段的默认为 false
+      if (ni.done === undefined || ni.done === null) {
+        ni.done = false;
+      }
       result.push(ni);
     }
     return result;

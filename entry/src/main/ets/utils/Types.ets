@@ -2,6 +2,7 @@
 interface NoteItem {
   content: string;
   createdAt: string; // ISO 日期字符串 YYYY-MM-DD HH:mm
+  done?: boolean; // 是否已完成
 }
 
 interface HealthData {

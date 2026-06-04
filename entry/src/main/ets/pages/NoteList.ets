@@ -1,4 +1,4 @@
-// NoteList.ets - 当前笔记快捷入口组件
+// NoteList.ets - 当前笔记快捷入口（液态玻璃风格）
 import router from '@ohos.router';
 
 @Component
@@ -19,7 +19,7 @@ export struct NoteList {
       Row() {
         Text('当前笔记').fontSize(18).fontWeight(FontWeight.Medium).fontColor(this.getThemeColor('textColor'))
         Blank()
-        Text(`${this.getNoteWordCount(this.currentNote)} 字`).fontSize(12).fontColor('#999999')
+        Text(`${this.getNoteWordCount(this.currentNote)} 字`).fontSize(12).fontColor(this.getThemeColor('mutedTextColor'))
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 16, bottom: 12 })
@@ -27,13 +27,15 @@ export struct NoteList {
       Stack() {
         TextInput({ placeholder: '点击进入编辑模式…', text: this.currentNote })
           .width('100%').height(200)
-          .backgroundColor(this.getThemeColor('cardColor')).borderRadius(12).padding(16)
-          .fontSize(15).fontColor(this.getThemeColor('textColor')).placeholderColor('#999999')
+          .backgroundColor('rgba(255, 255, 255, 0.08)').borderRadius(16).padding(20)
+          .fontSize(15).fontColor(this.getThemeColor('textColor')).placeholderColor('rgba(255, 255, 255, 0.4)')
+          .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.12)' })
           .enabled(false)
         Row().width('100%').height(200).onClick(() => { this.openNoteEditor(); })
       }
       .width('100%').height(200)
       .padding({ left: 20, right: 20, bottom: 16 })
+      .shadow({ radius: 16, color: 'rgba(0, 0, 0, 0.15)', offsetX: 0, offsetY: 6 })
     }
     .width('100%')
   }

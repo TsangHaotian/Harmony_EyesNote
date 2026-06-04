@@ -6,7 +6,7 @@ import promptAction from '@ohos.promptAction';
 import { ThemePreset, NoteItem } from '../utils/Types';
 import { ThemeColorKey, getTheme, getThemeColorValue } from '../utils/Theme';
 import { callDeepSeek, NOTE_ANALYSIS_SYSTEM_PROMPT } from '../utils/AIService';
-import { EditorToolbar } from '../components/EditorToolbar';
+import { MarkdownPreview } from '../components/MarkdownPreview';
 
 interface NoteParams {
   noteContent?: string;
@@ -17,13 +17,12 @@ interface NoteParams {
 @Component
 struct NoteDetail {
   @State noteContent: string = '';
+  noteCreatedAt: string = '';
   @State editedContent: string = '';
   @State noteIndex: number = -1;
-  @State showToolbar: boolean = true;
-  @State toolbarOpacity: number = 1;
-  @State toolbarOffset: number = 0;
   @State isAnalyzing: boolean = false;
   @State showLoading: boolean = false;
+  @State showPreview: boolean = true;
 
   private theme: ThemePreset = getTheme();
 
@@ -45,6 +44,16 @@ struct NoteDetail {
         this.noteContent = historyNotes[this.noteIndex].content;
       }
     }
+    // 如果没有传 index，尝试根据传入内容匹配
+    if (this.noteIndex < 0 && this.noteContent) {
+      const historyNotes = await storage.getHistoryNotes();
+      for (let i = 0; i < historyNotes.length; i++) {
+        if (historyNotes[i].content === this.noteContent) {
+          this.noteIndex = i;
+          break;
+        }
+      }
+    }
   }
 
   async onPageShow() {
@@ -62,44 +71,40 @@ struct NoteDetail {
       promptAction.showToast({ message: '内容不能为空', duration: 2000 });
       return;
     }
-    if (this.noteIndex >= 0) {
-      const historyNotes = await storage.getHistoryNotes();
+    const historyNotes = await storage.getHistoryNotes();
+
+    if (this.noteIndex >= 0 && this.noteIndex < historyNotes.length) {
+      // 更新已有笔记（通过 index）
       historyNotes[this.noteIndex].content = this.editedContent;
       await storage.saveHistoryNotes(historyNotes);
     } else {
-      const historyNotes = await storage.getHistoryNotes();
-      const now = new Date();
-      const y = now.getFullYear();
-      const m = (now.getMonth() + 1).toString().padStart(2, '0');
-      const d = now.getDate().toString().padStart(2, '0');
-      const h = now.getHours().toString().padStart(2, '0');
-      const min = now.getMinutes().toString().padStart(2, '0');
-      const newNote: NoteItem = { content: this.editedContent, createdAt: `${y}-${m}-${d} ${h}:${min}` };
-      historyNotes.unshift(newNote);
-      await storage.saveHistoryNotes(historyNotes);
-      this.noteIndex = 0;
+      // 通过内容匹配查找（日历等地方没有传 index）
+      let found = false;
+      for (let i = 0; i < historyNotes.length; i++) {
+        if (historyNotes[i].content === this.noteContent) {
+          historyNotes[i].content = this.editedContent;
+          await storage.saveHistoryNotes(historyNotes);
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        // 完全没匹配到，创建新笔记
+        const now = new Date();
+        const y = now.getFullYear();
+        const m_ = (now.getMonth() + 1).toString().padStart(2, '0');
+        const d_ = now.getDate().toString().padStart(2, '0');
+        const h = now.getHours().toString().padStart(2, '0');
+        const min = now.getMinutes().toString().padStart(2, '0');
+        const newNote: NoteItem = { content: this.editedContent, createdAt: `${y}-${m_}-${d_} ${h}:${min}` };
+        historyNotes.unshift(newNote);
+        await storage.saveHistoryNotes(historyNotes);
+      }
     }
     router.back({ url: 'pages/Index', params: { _refresh: Date.now() } });
   }
 
   getWordCount(): number { return this.editedContent.replace(/\s/g, '').length; }
-
-  insertText(text: string) { this.editedContent += text; }
-  insertDate() { const d = new Date(); this.insertText(`${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`); }
-  insertTime() { const d = new Date(); this.insertText(`${d.getHours().toString().padStart(2, '0')}:${d.getMinutes().toString().padStart(2, '0')}`); }
-  insertDivider() { this.insertText('\n────────────────\n'); }
-  insertTodo() { this.insertText('\n□ '); }
-  insertTitle() { this.insertText('\n【标题】\n'); }
-
-  toggleToolbar() {
-    if (!this.showToolbar) {
-      this.showToolbar = true; this.toolbarOpacity = 0; this.toolbarOffset = -8;
-      animateTo({ duration: 280, curve: 'easeInOut' }, () => { this.toolbarOpacity = 1; this.toolbarOffset = 0; });
-    } else {
-      animateTo({ duration: 240, curve: 'easeInOut' }, () => { this.toolbarOpacity = 0; this.toolbarOffset = -8; });
-      setTimeout(() => { this.showToolbar = false; }, 210);
-    }
-  }
 
   clearContent() {
     promptAction.showDialog({
@@ -170,57 +175,59 @@ struct NoteDetail {
       // 顶部导航栏
       Row() {
         Image($r('app.media.ic_backup')).width(28).height(28).padding(4).margin({ right: 12 })
+          .fillColor(this.getThemeColor('textColor'))
           .onClick(() => { router.back(); })
         Text('笔记详情').fontSize(20).fontWeight(FontWeight.Bold).fontColor(this.getThemeColor('textColor'))
         Blank()
-        Button('保存').fontSize(15).fontColor('#FFFFFF').backgroundColor(this.getThemeColor('accentColor'))
-          .borderRadius(20).height(36).padding({ left: 20, right: 20 })
-          .onClick(() => { this.saveNote(); })
+        // 操作按钮组（椭圆玻璃卡片）
+        Row({ space: 4 }) {
+          Button(this.showPreview ? '编辑' : '预览').fontSize(13).fontColor(this.getThemeColor('textColor'))
+            .backgroundColor('transparent').borderRadius(16).height(32).padding({ left: 12, right: 12 })
+            .onClick(() => { this.showPreview = !this.showPreview; })
+          Divider().vertical(true).height(18).color('rgba(255,255,255,0.15)')
+          Button('保存').fontSize(13).fontColor('#FFFFFF')
+            .backgroundColor('transparent').borderRadius(16).height(32).padding({ left: 12, right: 12 })
+            .onClick(() => { this.saveNote(); })
+        }
+        .height(36).padding({ left: 4, right: 4 })
+        .backgroundColor('rgba(255, 255, 255, 0.1)')
+        .borderRadius(18)
+        .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.15)' })
       }
       .width('100%').height(56).padding({ left: 20, right: 20, top: 8, bottom: 8 })
-      .backgroundColor(this.getThemeColor('cardColor'))
 
-      Divider().strokeWidth(0.5).color('#E5E5EA')
-
-      // 工具栏
-      EditorToolbar({
-        showToolbar: this.showToolbar,
-        toolbarOpacity: this.toolbarOpacity,
-        toolbarOffset: this.toolbarOffset,
-        showDate: true,
-        showTime: true,
-        showDivider: true,
-        showTodo: true,
-        showTitleButton: true,
-        showSelectAll: true,
-        showClear: true,
-        wordCount: this.getWordCount(),
-        lineCount: this.editedContent.split('\n').length,
-        cardColor: this.getThemeColor('cardColor'),
-        textColor: this.getThemeColor('textColor'),
-        accentColor: this.getThemeColor('accentColor'),
-        mutedTextColor: this.getThemeColor('mutedTextColor'),
-        onToggleToolbar: () => { this.toggleToolbar(); },
-        onInsertDate: () => { this.insertDate(); },
-        onInsertTime: () => { this.insertTime(); },
-        onInsertDivider: () => { this.insertDivider(); },
-        onInsertTodo: () => { this.insertTodo(); },
-        onInsertTitle: () => { this.insertTitle(); },
-        onClearContent: () => { this.clearContent(); }
-      })
-
-      // 笔记内容编辑区
-      Column() {
-        TextArea({ placeholder: '请输入笔记内容...', text: this.editedContent })
-          .width('100%').height('100%')
-          .fontSize(16).fontColor(this.getThemeColor('textColor')).lineHeight(24)
-          .backgroundColor(this.getThemeColor('cardColor'))
-          .placeholderColor(this.getThemeColor('mutedTextColor'))
-          .padding(20)
-          .onChange((value: string) => { this.editedContent = value; })
+      // 笔记内容区域
+      if (this.showPreview) {
+        // Markdown 预览模式
+        Scroll() {
+          Column() {
+            MarkdownPreview({
+              content: this.editedContent,
+              textColor: this.getThemeColor('textColor'),
+              mutedColor: this.getThemeColor('mutedTextColor'),
+              accentColor: this.getThemeColor('accentColor')
+            })
+          }
+          .width('100%').padding(16)
+          .justifyContent(FlexAlign.Start)
+        }
+        .layoutWeight(1).width('100%')
+        .scrollBar(BarState.Off)
+        .align(Alignment.Top)
+      } else {
+        // 编辑模式
+        Column() {
+          TextArea({ placeholder: '请输入笔记内容...', text: this.editedContent })
+            .width('100%').height('100%')
+            .fontSize(16).fontColor(this.getThemeColor('textColor')).lineHeight(24)
+            .backgroundColor('rgba(255, 255, 255, 0.06)')
+            .placeholderColor(this.getThemeColor('mutedTextColor'))
+            .padding(20)
+            .onChange((value: string) => { this.editedContent = value; })
+        }
+        .layoutWeight(1).width('100%')
+        .padding({ left: 20, right: 20, top: 16, bottom: 16 })
       }
-      .layoutWeight(1).width('100%')
-      .padding({ left: 20, right: 20, top: 16, bottom: 16 })
 
       // 操作区域
       Column({ space: 12 }) {
@@ -243,6 +250,9 @@ struct NoteDetail {
       .width('100%').padding({ left: 20, right: 20, top: 12, bottom: 32 })
     }
     .width('100%').height('100%')
-    .backgroundColor(this.getThemeColor('backgroundColor'))
+    .linearGradient({
+      direction: GradientDirection.Bottom,
+      colors: [['#1a1a2e', 0], ['#16213e', 0.5], ['#0f3460', 1]]
+    })
   }
 }

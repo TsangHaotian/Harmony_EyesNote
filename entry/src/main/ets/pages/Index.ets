@@ -1,4 +1,4 @@
-// Index.ets - 主页面，三 tab：笔记 | 日历 | DeepSeek
+// Index.ets - 主页面，三 tab：笔记 | 日历 | DeepSeek（液态玻璃风格）
 import router from '@ohos.router';
 import common from '@ohos.app.ability.common';
 import { storage } from '../utils/Storage';
@@ -40,24 +40,19 @@ struct Index {
 
   async onPageShow() {
     const result = router.getParams() as Record<string, Object>;
-
     if (result) {
       if (result.currentNote !== undefined) {
         this.currentNote = result.currentNote as string;
         await storage.saveCurrentNote(this.currentNote);
       }
     }
-
     const savedCurrentNote = await storage.getCurrentNote();
     if (savedCurrentNote !== this.currentNote) {
       this.currentNote = savedCurrentNote;
     }
-
     const savedCustomTemplates = await storage.getCustomTemplates();
     this.customTemplates = savedCustomTemplates;
     this.allTemplates = [...this.defaultTemplates, ...this.customTemplates];
-
-    // 通知所有视图刷新
     this.viewRefreshFlag++;
   }
 
@@ -66,10 +61,18 @@ struct Index {
     if (savedCurrentNote) {
       this.currentNote = savedCurrentNote;
     }
-
     const savedCustomTemplates = await storage.getCustomTemplates();
     this.customTemplates = savedCustomTemplates;
     this.allTemplates = [...this.defaultTemplates, ...this.customTemplates];
+  }
+
+  @Builder
+  GlassCard() {
+    Column()
+      .width('100%').height('100%')
+      .backgroundColor('rgba(255, 255, 255, 0.08)')
+      .borderRadius(16)
+      .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.15)' })
   }
 
   @Builder
@@ -92,26 +95,27 @@ struct Index {
                   .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%').textAlign(TextAlign.Center)
                   .padding({ left: 8, right: 8 })
                 if (template.description) {
-                  Text(template.description).fontSize(11).fontColor('#999999').maxLines(2)
+                  Text(template.description).fontSize(11).fontColor(this.getThemeColor('mutedTextColor')).maxLines(2)
                     .textOverflow({ overflow: TextOverflow.Ellipsis }).width('100%').textAlign(TextAlign.Center)
                     .padding({ left: 8, right: 8, bottom: 4 })
                 }
                 if (template.category) {
-                  Text(template.category).fontSize(10).fontColor('#007AFF').backgroundColor('#E3F2FD')
+                  Text(template.category).fontSize(10).fontColor(this.getThemeColor('accentColor')).backgroundColor('rgba(96, 165, 250, 0.15)')
                     .padding({ left: 6, right: 6, top: 2, bottom: 2 }).borderRadius(8).margin({ top: 4 })
                 }
               }
               .width('100%').layoutWeight(1)
 
               Button('使用').width('70%').height(36).fontSize(14).fontColor('#FFFFFF')
-                .backgroundColor(this.getThemeColor('accentColor')).borderRadius(8)
+                .backgroundColor('rgba(255, 255, 255, 0.2)').borderRadius(8)
                 .margin({ bottom: 12, left: 12, right: 12 })
                 .onClick(() => { this.currentNote = template.content;
                   promptAction.showToast({ message: `已应用模板：${template.name}`, duration: 1500 }); })
             }
             .width(140).height(180)
-            .backgroundColor(this.getThemeColor('cardColor')).borderRadius(16)
-            .shadow({ radius: 8, color: '#00000012', offsetX: 0, offsetY: 4 })
+            .backgroundColor('rgba(255, 255, 255, 0.1)').borderRadius(16)
+            .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.15)' })
+            .shadow({ radius: 12, color: 'rgba(0, 0, 0, 0.2)', offsetX: 0, offsetY: 4 })
             .onClick(() => { this.currentNote = template.content;
               promptAction.showToast({ message: `已应用模板：${template.name}`, duration: 1500 }); })
           }, (template: Template) => template.id)
@@ -131,20 +135,21 @@ struct Index {
         // 笔记页面 — tab 0
         Column() {
           Column() {
-            Row().width('100%').height(40).backgroundColor(this.getThemeColor('backgroundColor'))
+            Row().width('100%').height(50).backgroundColor('transparent')
 
             Row() {
-              Text('EyesNote').fontSize(24).fontWeight(FontWeight.Bold).fontColor(this.getThemeColor('textColor'))
+              Text('EyesNote').fontSize(26).fontWeight(FontWeight.Bold).fontColor(this.getThemeColor('textColor'))
+                .shadow({ radius: 4, color: 'rgba(0,0,0,0.3)', offsetX: 0, offsetY: 2 })
               Blank()
               Image($r("app.media.ic_setting")).width(42).height(42).padding(4)
+                .fillColor(this.getThemeColor('textColor'))
                 .onClick(() => { router.pushUrl({ url: 'pages/Settings' }); })
             }
             .width('100%').height(56).padding({ left: 20, right: 20, top: 8, bottom: 8 })
-            .backgroundColor(this.getThemeColor('backgroundColor'))
 
             this.TemplateSection()
 
-            Divider().strokeWidth(0.5).color('#E5E5EA').margin({ left: 20, right: 20 })
+            Divider().strokeWidth(0.3).color('rgba(255, 255, 255, 0.1)').margin({ left: 20, right: 20 })
 
             NoteList({
               currentNote: $currentNote,
@@ -152,7 +157,6 @@ struct Index {
             })
           }
           .width('100%').layoutWeight(1)
-          .backgroundColor(this.getThemeColor('backgroundColor'))
         }
         .width('100%').height('100%')
         .translate({ x: `${(0 - this.selectedIndex) * 100}%` })
@@ -178,47 +182,50 @@ struct Index {
       }
       .layoutWeight(1)
 
-      // 底部导航栏
+      // 底部导航栏（玻璃效果）
       Row() {
         Column({ space: 4 }) {
           Image($r('app.media.ic_edit')).width(26).height(26)
-            .fillColor(this.selectedIndex === 0 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
+            .fillColor(this.selectedIndex === 0 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)')
           Text('笔记').fontSize(12)
-            .fontColor(this.selectedIndex === 0 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
+            .fontColor(this.selectedIndex === 0 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)')
             .fontWeight(this.selectedIndex === 0 ? FontWeight.Medium : FontWeight.Normal)
         }
         .layoutWeight(1)
         .onClick(() => { if (this.selectedIndex !== 0) { animateTo({ duration: 250, curve: 'easeInOut' }, () => { this.selectedIndex = 0; }); } })
-        .alignItems(HorizontalAlign.Center).padding({ top: 14, bottom: 0 })
+        .alignItems(HorizontalAlign.Center).padding({ top: 10, bottom: 0 })
 
         Column({ space: 4 }) {
           Text('📅').fontSize(22)
           Text('日历').fontSize(12)
-            .fontColor(this.selectedIndex === 1 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
+            .fontColor(this.selectedIndex === 1 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)')
             .fontWeight(this.selectedIndex === 1 ? FontWeight.Medium : FontWeight.Normal)
         }
         .layoutWeight(1)
         .onClick(() => { if (this.selectedIndex !== 1) { animateTo({ duration: 250, curve: 'easeInOut' }, () => { this.selectedIndex = 1; }); } })
-        .alignItems(HorizontalAlign.Center).padding({ top: 14, bottom: 0 })
+        .alignItems(HorizontalAlign.Center).padding({ top: 10, bottom: 0 })
 
         Column({ space: 4 }) {
           Image($r('app.media.ic_ai')).width(26).height(26)
-            .fillColor(this.selectedIndex === 2 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
+            .fillColor(this.selectedIndex === 2 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)')
           Text('DeepSeek').fontSize(12)
-            .fontColor(this.selectedIndex === 2 ? this.getThemeColor('accentColor') : this.getThemeColor('mutedTextColor'))
+            .fontColor(this.selectedIndex === 2 ? '#FFFFFF' : 'rgba(255, 255, 255, 0.5)')
             .fontWeight(this.selectedIndex === 2 ? FontWeight.Medium : FontWeight.Normal)
         }
         .layoutWeight(1)
         .onClick(() => { if (this.selectedIndex !== 2) { animateTo({ duration: 250, curve: 'easeInOut' }, () => { this.selectedIndex = 2; }); } })
-        .alignItems(HorizontalAlign.Center).padding({ top: 14, bottom: 0 })
+        .alignItems(HorizontalAlign.Center).padding({ top: 10, bottom: 0 })
       }
-      .width('100%').height(84)
-      .backgroundColor(this.getThemeColor('cardColor'))
-      .border({ width: { top: 0.5 }, color: '#E5E5EA' })
-      .shadow({ radius: 8, color: '#00000008', offsetX: 0, offsetY: -2 })
-      .padding({ bottom: 20 })
+      .width('100%').height(80)
+      .backgroundColor('rgba(255, 255, 255, 0.1)')
+      .border({ width: { top: 0.5 }, color: 'rgba(255, 255, 255, 0.15)' })
+      .shadow({ radius: 20, color: 'rgba(0, 0, 0, 0.2)', offsetX: 0, offsetY: -4 })
+      .padding({ bottom: 16 })
     }
     .width('100%').height('100%')
-    .backgroundColor(this.getThemeColor('backgroundColor'))
+    .linearGradient({
+      direction: GradientDirection.Bottom,
+      colors: [['#1a1a2e', 0], ['#16213e', 0.5], ['#0f3460', 1]]
+    })
   }
 }

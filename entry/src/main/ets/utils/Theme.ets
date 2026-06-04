@@ -1,25 +1,22 @@
 import { ThemePreset } from './Types';
 
-type ThemeColorKey = 'backgroundColor' | 'cardColor' | 'textColor' | 'accentColor' | 'mutedTextColor';
+type ThemeColorKey = 'backgroundColor' | 'cardColor' | 'textColor' | 'accentColor' | 'mutedTextColor' | 'glassBorder';
 
-const DEFAULT_THEME_ID: string = 'fresh';
-
-// 固定配色 — 薄荷晨光，不跟随系统暗色/亮色切换
 const THEME: ThemePreset = {
-  id: 'fresh',
-  name: '薄荷晨光',
-  backgroundColor: '#F0F9F4',
-  cardColor: '#FFFFFF',
-  textColor: '#1E293B',
-  accentColor: '#0D9488',
-  mutedTextColor: '#475569'
+  id: 'glass',
+  name: '液态玻璃',
+  backgroundColor: '#1a1a2e',
+  cardColor: 'rgba(255, 255, 255, 0.15)',
+  textColor: '#FFFFFF',
+  accentColor: '#60A5FA',
+  mutedTextColor: 'rgba(255, 255, 255, 0.6)'
 };
 
 function getTheme(): ThemePreset {
   return THEME;
 }
 
-function getThemeColorValue(theme: ThemePreset, key: ThemeColorKey): string {
+function getThemeColorValue(theme: ThemePreset, key: string): string {
   switch (key) {
     case 'cardColor':
       return theme.cardColor;
@@ -30,9 +27,12 @@ function getThemeColorValue(theme: ThemePreset, key: ThemeColorKey): string {
     case 'mutedTextColor':
       return theme.mutedTextColor;
     case 'backgroundColor':
+      return theme.backgroundColor;
+    case 'glassBorder':
+      return 'rgba(255, 255, 255, 0.25)';
     default:
       return theme.backgroundColor;
   }
 }
 
-export { DEFAULT_THEME_ID, ThemeColorKey, getTheme, getThemeColorValue };
+export { ThemeColorKey, getTheme, getThemeColorValue };

@@ -31,6 +31,10 @@ export struct CalendarView {
   @State noteList: NoteItem[] = []
   @State gridOpacity: number = 1.0
   @State gridTranslateX: number = 0
+  @State fabOffsetX: number = 0
+  @State fabOffsetY: number = 0
+  @State fabStartX: number = 0
+  @State fabStartY: number = 0
 
   onRefresh() {
     this.loadData();
@@ -226,133 +230,155 @@ export struct CalendarView {
   }
 
   build() {
-    Column() {
-      // 安全距离
-      Row().width('100%').height(50).backgroundColor(this.getThemeColor('backgroundColor'))
+    Stack({ alignContent: Alignment.BottomEnd }) {
+      Column() {
+        Row().width('100%').height(50).backgroundColor('transparent')
 
-      // 月份导航
-      Row() {
-        Text('‹').fontSize(26).fontColor(this.getThemeColor('textColor'))
-          .fontWeight(FontWeight.Bold).width(40).height(40).textAlign(TextAlign.Center)
-          .onClick(() => { this.prevMonth(); })
-        Text(`${this.year}年${this.month}月`).fontSize(20).fontWeight(FontWeight.Bold)
-          .fontColor(this.getThemeColor('textColor')).layoutWeight(1).textAlign(TextAlign.Center)
-          .onClick(() => {
-            DatePickerDialog.show({
-              start: new Date(2000, 0, 1),
-              end: new Date(2099, 11, 31),
-              selected: new Date(this.year, this.month - 1, this.selDay),
-              onAccept: (val: DatePickerResult) => {
-                if (val.year) this.year = val.year;
-                if (val.month !== undefined) this.month = val.month + 1;
-                if (val.day) this.selDay = val.day;
-                const max = new Date(this.year, this.month, 0).getDate();
-                if (this.selDay > max) this.selDay = max;
-                this.buildDays();
-              }
-            });
-          })
-        Text('›').fontSize(26).fontColor(this.getThemeColor('textColor'))
-          .fontWeight(FontWeight.Bold).width(40).height(40).textAlign(TextAlign.Center)
-          .onClick(() => { this.nextMonth(); })
-        Text('今天').fontSize(13).fontColor(this.getThemeColor('accentColor')).fontWeight(FontWeight.Medium)
-          .width(52).height(30).textAlign(TextAlign.Center).borderRadius(15)
-          .backgroundColor(this.getThemeColor('cardColor'))
-          .shadow({ radius: 2, color: '#00000010', offsetX: 0, offsetY: 1 })
-          .onClick(() => { this.goToday(); })
-      }
-      .width('100%').height(44).padding({ left: 8, right: 8 })
-      .backgroundColor(this.getThemeColor('backgroundColor'))
-
-      // 星期行
-      Row() {
-        ForEach(['日', '一', '二', '三', '四', '五', '六'], (w: string) => {
-          Text(w).fontSize(13).fontColor(this.getThemeColor('mutedTextColor'))
-            .layoutWeight(1).textAlign(TextAlign.Center)
-        }, (w: string) => w)
-      }
-      .width('100%').height(24).padding({ left: 4, right: 4 })
-
-      // 日期网格 — 使用 GridRow/GridCol
-      GridRow({ columns: 7, gutter: { y: 4 } }) {
-        ForEach(this.days, (cell: DayCell) => {
-          GridCol() {
-            if (cell.day > 0) {
-              Column() {
-                Text(`${cell.day}`).fontSize(17)
-                  .fontColor(cell.isSel ? '#FFFFFF' : cell.isToday ? this.getThemeColor('accentColor') : this.getThemeColor('textColor'))
-                  .fontWeight(cell.isToday || cell.isSel ? FontWeight.Bold : FontWeight.Normal)
-                if (cell.hasNote) {
-                  Row().width(4).height(4).borderRadius(2)
-                    .backgroundColor(cell.isSel ? '#FFFFFF' : this.getThemeColor('accentColor'))
-                    .margin({ top: 2 })
-                }
-              }
-              .width('100%').aspectRatio(1)
-              .justifyContent(FlexAlign.Center)
-              .backgroundColor(cell.isSel ? this.getThemeColor('accentColor') : 'transparent')
-              .borderRadius(10)
-              .onClick(() => { this.pickDay(cell.day); })
-            }
-          }
-        }, (cell: DayCell) => `d${cell.day}_${cell.isSel}`)
-      }
-      .width('100%').padding({ left: 8, right: 8 })
-      .opacity(this.gridOpacity)
-      .translate({ x: this.gridTranslateX })
-
-      Divider().strokeWidth(0.5).color('#E5E5EA').margin({ top: 8, bottom: 8 })
-
-      // 选中日期标题
-      Row() {
-        Text(`${this.month}月${this.selDay}日`).fontSize(18).fontWeight(FontWeight.Bold)
-          .fontColor(this.getThemeColor('textColor'))
-        Text(` ${this.dayNotes.length}条`).fontSize(14).fontColor(this.getThemeColor('mutedTextColor'))
-          .margin({ left: 8 })
-        Blank()
-      }
-      .width('100%').padding({ left: 20, right: 20, bottom: 8 })
-
-      // 笔记卡片列表
-      Scroll() {
-        Column() {
-          if (this.dayNotes.length === 0) {
-            Text('暂无笔记').fontSize(14).fontColor(this.getThemeColor('mutedTextColor'))
-              .margin({ top: 24, bottom: 24 }).width('100%').textAlign(TextAlign.Center)
-          } else {
-            Column({ space: 8 }) {
-              ForEach(this.dayNotes, (item: NoteItem) => {
-                Row() {
-                  Column({ space: 4 }) {
-                    Text(item.content).fontSize(15).maxLines(3)
-                      .fontColor(this.getThemeColor('textColor'))
-                      .textOverflow({ overflow: TextOverflow.Ellipsis }).lineHeight(22).width('100%')
-                    Row() {
-                      Text(this.getTime(item.createdAt)).fontSize(12).fontColor('#999999')
-                      Text(` ${this.wordCount(item.content)} 字`).fontSize(12).fontColor('#999999')
-                        .margin({ left: 12 })
+        Scroll() {
+          Column() {
+            Row() {
+              Text('‹').fontSize(26).fontColor(this.getThemeColor('textColor'))
+                .fontWeight(FontWeight.Bold).width(40).height(40).textAlign(TextAlign.Center)
+                .onClick(() => { this.prevMonth(); })
+              Text(`${this.year}年${this.month}月`).fontSize(20).fontWeight(FontWeight.Bold)
+                .fontColor(this.getThemeColor('textColor')).layoutWeight(1).textAlign(TextAlign.Center)
+                .onClick(() => {
+                  DatePickerDialog.show({
+                    start: new Date(2000, 0, 1), end: new Date(2099, 11, 31),
+                    selected: new Date(this.year, this.month - 1, this.selDay),
+                    onAccept: (val: DatePickerResult) => {
+                      if (val.year) this.year = val.year;
+                      if (val.month !== undefined) this.month = val.month + 1;
+                      if (val.day) this.selDay = val.day;
+                      const max = new Date(this.year, this.month, 0).getDate();
+                      if (this.selDay > max) this.selDay = max;
+                      this.buildDays();
                     }
-                  }
-                  .layoutWeight(1).alignItems(HorizontalAlign.Start)
-
-                  Image($r('app.media.ic_delete')).width(28).height(28).padding(4)
-                    .onClick(() => { this.deleteNote(item); })
-                }
-                .width('100%').padding({ left: 16, right: 16, top: 14, bottom: 14 })
-                .backgroundColor(this.getThemeColor('cardColor')).borderRadius(12)
-                .shadow({ radius: 2, color: '#00000006', offsetX: 0, offsetY: 1 })
-                .onClick(() => { this.openDetail(item); })
-              }, (item: NoteItem) => `${item.content}_${item.createdAt}`)
+                  });
+                })
+              Text('›').fontSize(26).fontColor(this.getThemeColor('textColor'))
+                .fontWeight(FontWeight.Bold).width(40).height(40).textAlign(TextAlign.Center)
+                .onClick(() => { this.nextMonth(); })
+              Text('今天').fontSize(13).fontColor('#FFFFFF').fontWeight(FontWeight.Medium)
+                .width(52).height(30).textAlign(TextAlign.Center).borderRadius(15)
+                .backgroundColor('rgba(255, 255, 255, 0.15)')
+                .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.2)' })
+                .onClick(() => { this.goToday(); })
             }
-            .width('100%').padding({ left: 20, right: 20, bottom: 16 })
+            .width('100%').height(44).padding({ left: 8, right: 8 })
+
+            Row() {
+              ForEach(['日', '一', '二', '三', '四', '五', '六'], (w: string) => {
+                Text(w).fontSize(13).fontColor(this.getThemeColor('mutedTextColor'))
+                  .layoutWeight(1).textAlign(TextAlign.Center)
+              }, (w: string) => w)
+            }
+            .width('100%').height(24).padding({ left: 4, right: 4 })
+
+            GridRow({ columns: 7, gutter: { y: 4 } }) {
+              ForEach(this.days, (cell: DayCell) => {
+                GridCol() {
+                  if (cell.day > 0) {
+                    Column() {
+                      Text(`${cell.day}`).fontSize(17)
+                        .fontColor(cell.isSel ? '#FFFFFF' : cell.isToday ? '#60A5FA' : this.getThemeColor('textColor'))
+                        .fontWeight(cell.isToday || cell.isSel ? FontWeight.Bold : FontWeight.Normal)
+                      if (cell.hasNote) {
+                        Row().width(4).height(4).borderRadius(2)
+                          .backgroundColor(cell.isSel ? '#FFFFFF' : '#60A5FA').margin({ top: 2 })
+                      }
+                    }
+                    .width('100%').aspectRatio(1)
+                    .justifyContent(FlexAlign.Center)
+                    .backgroundColor(cell.isSel ? '#60A5FA' : 'transparent')
+                    .borderRadius(10)
+                    .onClick(() => { this.pickDay(cell.day); })
+                  }
+                }
+              }, (cell: DayCell) => `d${cell.day}_${cell.isSel}`)
+            }
+            .width('100%').padding({ left: 8, right: 8 })
+            .opacity(this.gridOpacity).translate({ x: this.gridTranslateX })
+
+            Divider().strokeWidth(0.5).color('rgba(255,255,255,0.1)').margin({ top: 8, bottom: 8 })
+
+            Row() {
+              Text(`${this.month}月${this.selDay}日`).fontSize(18).fontWeight(FontWeight.Bold)
+                .fontColor(this.getThemeColor('textColor'))
+              Text(` ${this.dayNotes.length}条`).fontSize(14).fontColor(this.getThemeColor('mutedTextColor')).margin({ left: 8 })
+              Blank()
+            }
+            .width('100%').padding({ left: 20, right: 20, bottom: 8 })
+
+            if (this.dayNotes.length === 0) {
+              Text('暂无笔记').fontSize(14).fontColor(this.getThemeColor('mutedTextColor'))
+                .margin({ top: 24, bottom: 24 }).width('100%').textAlign(TextAlign.Center)
+            } else {
+              Column({ space: 8 }) {
+                ForEach(this.dayNotes, (item: NoteItem) => {
+                  Row() {
+                    Column({ space: 4 }) {
+                      Text(item.content).fontSize(15).maxLines(3)
+                        .fontColor(this.getThemeColor('textColor'))
+                        .textOverflow({ overflow: TextOverflow.Ellipsis }).lineHeight(22).width('100%')
+                      Row() {
+                        Text(this.getTime(item.createdAt)).fontSize(12).fontColor('rgba(255,255,255,0.4)')
+                        Text(` ${this.wordCount(item.content)} 字`).fontSize(12).fontColor('rgba(255,255,255,0.4)').margin({ left: 12 })
+                      }
+                    }
+                    .layoutWeight(1).alignItems(HorizontalAlign.Start)
+
+                    Image($r('app.media.ic_delete')).width(28).height(28).padding(4)
+                      .onClick(() => { this.deleteNote(item); })
+                  }
+                  .width('100%').padding({ left: 16, right: 16, top: 14, bottom: 14 })
+                  .backgroundColor('rgba(255, 255, 255, 0.08)').borderRadius(12)
+                  .shadow({ radius: 2, color: '#00000006', offsetX: 0, offsetY: 1 })
+                  .onClick(() => { this.openDetail(item); })
+                }, (item: NoteItem) => `${item.content}_${item.createdAt}`)
+              }
+              .width('100%').padding({ left: 20, right: 20, bottom: 16 })
+            }
           }
+          .width('100%').height('100%').justifyContent(FlexAlign.Start)
         }
-        .width('100%')
+        .layoutWeight(1).width('100%')
+        .scrollBar(BarState.Off)
+        .edgeEffect(EdgeEffect.Spring)
       }
-      .layoutWeight(1).width('100%')
-      .scrollBar(BarState.Off)
+      .width('100%').height('100%')
+
+      // 悬浮加号按钮
+      Column() {
+        Text('+').fontSize(28).fontColor('#FFFFFF').fontWeight(FontWeight.Bold)
+      }
+      .width(52).height(52)
+      .backgroundColor('rgba(96, 165, 250, 0.4)')
+      .borderRadius(26)
+      .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.2)' })
+      .shadow({ radius: 12, color: 'rgba(96, 165, 250, 0.3)', offsetX: 0, offsetY: 4 })
+      .justifyContent(FlexAlign.Center)
+      .margin({ right: 24, bottom: 28 })
+      .translate({ x: this.fabOffsetX, y: this.fabOffsetY })
+      .onClick(() => {
+        router.pushUrl({
+          url: 'pages/NoteEditor',
+          params: { currentNote: '' }
+        });
+      })
+      .gesture(
+        PanGesture({ direction: PanDirection.All })
+          .onActionStart((event: GestureEvent) => {
+            this.fabStartX = this.fabOffsetX;
+            this.fabStartY = this.fabOffsetY;
+          })
+          .onActionUpdate((event: GestureEvent) => {
+            this.fabOffsetX = this.fabStartX + event.offsetX;
+            this.fabOffsetY = Math.min(20, this.fabStartY + event.offsetY);
+          })
+      )
     }
     .width('100%').height('100%')
-    .backgroundColor(this.getThemeColor('backgroundColor'))
+    .backgroundColor('transparent')
   }
 }

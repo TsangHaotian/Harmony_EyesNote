@@ -230,13 +230,13 @@ export struct AIChat {
 
   build() {
     Column() {
-      // 顶部安全距离（避开摄像头区域）
-      Row().width('100%').height(40).backgroundColor(this.getThemeColor('backgroundColor'))
+      Row().width('100%').height(50).backgroundColor('transparent')
 
       // 顶部标题栏
       Row() {
         Column() {
           Text('DeepSeek').fontSize(24).fontWeight(FontWeight.Bold).fontColor(this.getThemeColor('textColor'))
+            .shadow({ radius: 4, color: 'rgba(0,0,0,0.3)', offsetX: 0, offsetY: 2 })
           Text('笔记智能助手').fontSize(12).fontColor(this.getThemeColor('mutedTextColor')).margin({ top: 4 })
         }
         .alignItems(HorizontalAlign.Start)
@@ -268,9 +268,8 @@ export struct AIChat {
       }
       .width('100%').height(66)
       .padding({ left: 20, right: 20, top: 12, bottom: 12 })
-      .backgroundColor(this.getThemeColor('backgroundColor'))
 
-      Divider().strokeWidth(0.5).color('#E5E5EA')
+      Divider().strokeWidth(0.3).color('rgba(255, 255, 255, 0.1)')
 
       Stack() {
         // 聊天记录
@@ -283,10 +282,11 @@ export struct AIChat {
                   Column() {
                     Text(message.content)
                       .fontSize(15).fontColor('#FFFFFF').lineHeight(22)
-                      .backgroundColor(this.getThemeColor('accentColor'))
+                      .backgroundColor('rgba(96, 165, 250, 0.35)')
                       .padding({ top: 14, bottom: 14, left: 18, right: 18 })
                       .borderRadius({ topLeft: 20, topRight: 6, bottomLeft: 20, bottomRight: 20 })
                       .constraintSize({ maxWidth: '75%' })
+                      .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.15)' })
                   }
                 }
                 .width('100%')
@@ -297,15 +297,16 @@ export struct AIChat {
                   Column({ space: 6 }) {
                     Text(message.content)
                       .fontSize(15).fontColor(this.getThemeColor('textColor')).lineHeight(22)
-                      .backgroundColor(this.getThemeColor('cardColor'))
+                      .backgroundColor('rgba(255, 255, 255, 0.08)')
                       .padding({ top: 14, bottom: 14, left: 18, right: 18 })
                       .borderRadius({ topLeft: 6, topRight: 20, bottomLeft: 20, bottomRight: 20 })
                       .constraintSize({ maxWidth: '75%' })
-                      .shadow({ radius: 3, color: '#00000008', offsetX: 0, offsetY: 2 })
+                      .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.12)' })
+                      .shadow({ radius: 8, color: 'rgba(0, 0, 0, 0.15)', offsetX: 0, offsetY: 4 })
                     Row() {
                       Button('💾保存到笔记')
                         .fontSize(11).fontColor('#FFFFFF')
-                        .backgroundColor(this.getThemeColor('accentColor'))
+                        .backgroundColor('rgba(255, 255, 255, 0.15)')
                         .borderRadius(10).height(26).padding({ left: 10, right: 10 })
                         .onClick(async () => { await this.saveAIMessageToNotes(message.content); })
                       Blank()
@@ -444,23 +445,27 @@ export struct AIChat {
       Row({ space: 12 }) {
         TextInput({ placeholder: '输入你的问题...', text: this.aiInput })
           .layoutWeight(1).height(50)
-          .backgroundColor(this.getThemeColor('cardColor'))
+          .backgroundColor('rgba(255, 255, 255, 0.08)')
           .borderRadius(25).padding({ left: 18, right: 18 })
           .fontSize(15).fontColor(this.getThemeColor('textColor'))
-          .placeholderColor('#999999')
+          .placeholderColor('rgba(255, 255, 255, 0.4)')
+          .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.12)' })
           .onChange((value: string) => { this.aiInput = value; })
         Button('发送')
           .width(70).height(50).fontSize(15).fontColor('#FFFFFF')
-          .backgroundColor(this.getThemeColor('accentColor'))
+          .backgroundColor('rgba(255, 255, 255, 0.15)')
           .borderRadius(25)
+          .border({ width: 0.5, color: 'rgba(255, 255, 255, 0.2)' })
           .onClick(() => { this.sendAIMessage(); })
           .enabled(!this.isAIChatting)
       }
       .width('100%')
       .padding({ left: 20, right: 20, top: 12, bottom: 16 })
-      .backgroundColor(this.getThemeColor('backgroundColor'))
     }
     .width('100%').height('100%')
-    .backgroundColor(this.getThemeColor('backgroundColor'))
+    .linearGradient({
+      direction: GradientDirection.Bottom,
+      colors: [['#1a1a2e', 0], ['#16213e', 0.5], ['#0f3460', 1]]
+    })
   }
 }
